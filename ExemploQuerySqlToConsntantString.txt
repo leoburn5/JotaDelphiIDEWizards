@@ -1,0 +1,25 @@
+      'SELECT  mb.SeqMovimento AS SeqMovBanco,                                              ' + sLineBreak +
+      '        mb.DtaMovimento,                                                             ' + sLineBreak +
+      '        mb.IndTipoOperacao,                                                          ' + sLineBreak +
+      '        ROUND(mb.ValMovimento, 2) AS ValMovimento,                                   ' + sLineBreak +
+      '        mb.CodTipooperacao,                                                          ' + sLineBreak +
+      '        mb.NumDocumento,                                                             ' + sLineBreak +
+      '        mb.NumDocPagto,                                                              ' + sLineBreak +
+      '        mb.CodParceiroMovimento,                                                     ' + sLineBreak +
+      '        mb.DtaConciliacao,                                                           ' + sLineBreak +
+      '        mb.DesObservacao,                                                            ' + sLineBreak +
+      '        mb.IndConciliado,                                                            ' + sLineBreak +
+      '        parc.Nomparceiro as NomParceiroMovimento,                                    ' + sLineBreak +
+      '        TRIM(top.destipooperacao) as DesTipoOperacao,                                ' + sLineBreak +
+      '        COALESCE(adbd.id_transacao, adbt.id_transacao) as id_trans_adpbank           ' + sLineBreak +
+      'FROM    spkmba mb                                                                    ' + sLineBreak +
+      '   JOIN spkto top ON mb.codtipooperacao = top.codtipooperacao                        ' + sLineBreak +
+      '   LEFT JOIN spkparc parc ON mb.codparceiromovimento = parc.codparceiro              ' + sLineBreak +
+      '   LEFT JOIN tb_adpbank_transacao adbt on mb.id_trans_adpbank = adbt.id_trans_adpbank' + sLineBreak +
+      '   LEFT JOIN tb_adpbank_pgto_dev adbd on mb.id_trans_adpbank = adbd.id_trans_adpbank ' + sLineBreak +
+      'WHERE   mb.numMnemonico = :numMnemonico                                              ' + sLineBreak +
+      '    AND mb.indconciliado = ''N''                                                     ' + sLineBreak +
+      '    AND mb.dtamovimento::DATE BETWEEN :DtaInicio AND :DtaFim                         ' + sLineBreak +
+      'ORDER BY                                                                             ' + sLineBreak +
+      '        mb.dtamovimento,                                                             ' + sLineBreak +
+      '        mb.SeqMovimento                                                              ';

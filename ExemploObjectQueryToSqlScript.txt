@@ -1,0 +1,6 @@
+  MyQuery.Sql.Add('SELECT  cab.*,');
+  MyQuery.Sql.Add('        pb.NomParceiro || '' | Ag: '' || cb.NumAgencia || '' | C/C: '' || cb.NumAgencia AS DesConta');
+  MyQuery.Sql.Add('FROM    spk_cab_imp_extrato_banc cab');
+  MyQuery.Sql.Add('   JOIN spkcbanc cb ON cab.NumMnemonico = cb.NumMnemonico');
+  MyQuery.Sql.Add('   JOIN spkparc pb ON cb.codparceirobanco = pb.codparceiro');
+  MyQuery.Sql.Add('WHERE   cab.seqimportacao IS NOT NULL');
