@@ -1,3 +1,9 @@
 dcu
 dcp
 bpl
+*.dcu
+JotaIDEWizards.dproj.local
+/*.dsk
+/*.res
+/*.~dsk
+__history
