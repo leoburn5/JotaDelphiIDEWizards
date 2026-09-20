@@ -57,7 +57,7 @@ constructor TJotaToastForm.CreateToast(const AMessage: string; ADurationMs: Inte
 begin
   inherited CreateNew(nil);
 
-  ApplyIdeMatchingStyle(Self);
+  //ApplyIdeMatchingStyle(Self);
 
   BorderStyle := bsNone;
   FormStyle := fsStayOnTop;

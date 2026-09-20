@@ -1,59 +1,125 @@
 unit Jota.IDEWizards.Theming;
 
 {
-  Aplica aos formularios do "Jota IDE Wizards" o VCL Style que combina com
-  o tema atual da IDE: "Windows11 Modern Light" se a IDE estiver no tema
-  claro, "Windows11 Modern Dark" se estiver no tema escuro.
+  Aplica aos formularios do "Jota IDE Wizards":
 
-  Usa o recurso de "Per-Control Styles" (propriedade TControl.StyleName,
-  disponivel desde o Delphi 10.4) para estilizar somente os nossos
-  proprios formularios, sem alterar o estilo global da IDE. Atribuir um
-  nome de estilo que nao esteja carregado e inofensivo: o controle
-  simplesmente usa o estilo padrao (documentacao da Embarcadero sobre
-  Per-Control Styles).
+  1) O VCL Style que a IDE do Delphi esta usando no momento (Windows11
+     Modern Light ou Dark, ou outro escolhido em Tools > Options >
+     Appearance), via o mecanismo oficial para plugins de terceiros
+     (RAD Studio DocWiki, "Using IDE Styles in Third-Party Plugins"):
+       IOTAIDEThemingServices.RegisterFormClass(FormClass)
+       IOTAIDEThemingServices.ApplyTheme(Form)
+     Isso estiliza os controles do form (fundo, botoes, labels).
+
+  2) O icone do projeto (icons\JotaIDEWizards.ico, ao lado da pasta
+     "bpl" onde o pacote compilado fica) na barra de titulo. O caminho
+     e calculado em tempo de execucao a partir da localizacao do
+     proprio pacote (.bpl) carregado, entao nao depende de uma pasta
+     fixa de uma maquina especifica.
+
+  3) A cor de destaque ("accent") do proprio VCL Style ativo (a mesma
+     cor azul usada nos botoes/realces do tema) na barra de titulo
+     NATIVA do Windows, via a API do DWM (DwmSetWindowAttribute com
+     DWMWA_CAPTION_COLOR / DWMWA_TEXT_COLOR - Windows 11 build 22000+,
+     a mesma API que o Explorer/Windows Terminal usam pra colorir a
+     propria barra de titulo).
+
+  IMPORTANTE: ApplyIdeMatchingStyle deve ser chamado no FINAL do
+  construtor do formulario, depois de BorderStyle/BorderIcons/controles
+  filhos ja definidos. Essas propriedades recriam o handle da janela
+  (RecreateWnd); se a cor do DWM fosse aplicada antes, seria perdida
+  na recriacao. A chamada a AForm.Handle dentro desta unit forca a
+  criacao do handle (caso ainda nao exista) para poder aplicar a cor.
+
+  Observacao sobre o icone: formularios com BorderStyle = bsDialog nao
+  desenham o icone na barra de titulo (convencao do Windows para
+  janelas de dialogo). Por isso os formularios do projeto usam
+  BorderStyle = bsSingle com BorderIcons = [biSystemMenu] (sem
+  minimizar/maximizar - mesmo efeito visual de bsDialog, mas com
+  icone).
 }
 
 interface
 
 uses
-  Vcl.Controls;
+  Vcl.Forms;
 
 /// <summary>
-///   Aplica a AControl (tipicamente um TForm) o VCL Style "Windows11
-///   Modern Light" ou "Windows11 Modern Dark", conforme o tema atual da
-///   IDE. Se nao for possivel detectar o tema da IDE (versao antiga sem
-///   IOTAIDEThemingServices, por exemplo), nao faz nada.
+///   Aplica a AForm o VCL Style que a IDE do Delphi esta usando
+///   atualmente, o icone do projeto e a cor de destaque do tema na
+///   barra de titulo nativa. Deve ser chamado por ultimo no
+///   construtor do formulario, depois de BorderStyle, BorderIcons e
+///   todos os controles filhos ja estarem definidos. Se nao for
+///   possivel obter os servicos de tema da IDE, ou o tema estiver
+///   desabilitado, nao faz nada.
 /// </summary>
-procedure ApplyIdeMatchingStyle(AControl: TControl);
+procedure ApplyIdeMatchingStyle(AForm: TForm);
 
 implementation
 
 uses
   System.SysUtils,
-  ToolsAPI,
-  Vcl.Themes;
+  Winapi.Windows,
+  Vcl.Graphics,
+  ToolsAPI;
 
 const
-  LightStyleName = 'Windows11 Modern Light';
-  DarkStyleName = 'Windows11 Modern Dark';
+  DWMWA_CAPTION_COLOR = 35;
+  DWMWA_TEXT_COLOR = 36;
 
-procedure ApplyIdeMatchingStyle(AControl: TControl);
+function DwmSetWindowAttribute(hWnd: HWND; dwAttribute: DWORD;
+  pvAttribute: Pointer; cbAttribute: DWORD): HRESULT; stdcall;
+  external 'dwmapi.dll';
+
+function GetProjectIconPath: string;
+var
+  PackageDir: string;
+  ProjectDir: string;
+begin
+  // O pacote compilado (.bpl) fica em <projeto>\bpl\; os icones ficam
+  // em <projeto>\icons\ - calculado a partir do proprio .bpl, sem
+  // caminho fixo de maquina.
+  PackageDir := ExtractFilePath(GetModuleName(HInstance));
+  ProjectDir := ExtractFilePath(ExcludeTrailingPathDelimiter(PackageDir));
+  Result := ProjectDir + 'icons\JotaIDEWizards.ico';
+end;
+
+procedure ApplyIdeMatchingStyle(AForm: TForm);
 var
   ThemingServices: IOTAIDEThemingServices;
-  IsDarkTheme: Boolean;
+  AccentColor: TColor;
+  AccentTextColor: TColor;
+  CaptionColorRef: DWORD;
+  TextColorRef: DWORD;
+  IconPath: string;
+  Wnd: HWND;
 begin
   if not Supports(BorlandIDEServices, IOTAIDEThemingServices, ThemingServices) then
     Exit;
 
+  if not ThemingServices.IDEThemingEnabled then
+    Exit;
+
+  ThemingServices.RegisterFormClass(TCustomFormClass(AForm.ClassType));
+  ThemingServices.ApplyTheme(AForm);
+
+  IconPath := GetProjectIconPath;
+  if FileExists(IconPath) then
+    AForm.Icon.LoadFromFile(IconPath);
+
   if ThemingServices.StyleServices = nil then
     Exit;
 
-  IsDarkTheme := Pos('Dark', ThemingServices.StyleServices.Name) > 0;
+  AccentColor := ColorToRGB(ThemingServices.StyleServices.GetSystemColor(clHighlight));
+  AccentTextColor := ColorToRGB(ThemingServices.StyleServices.GetSystemColor(clHighlightText));
 
-  if IsDarkTheme then
-    AControl.StyleName := DarkStyleName
-  else
-    AControl.StyleName := LightStyleName;
+  Wnd := AForm.Handle; // forca a criacao do handle, se ainda nao existir
+
+  CaptionColorRef := DWORD(AccentColor);
+  DwmSetWindowAttribute(Wnd, DWMWA_CAPTION_COLOR, @CaptionColorRef, SizeOf(CaptionColorRef));
+
+  TextColorRef := DWORD(AccentTextColor);
+  DwmSetWindowAttribute(Wnd, DWMWA_TEXT_COLOR, @TextColorRef, SizeOf(TextColorRef));
 end;
 
 end.

@@ -54,10 +54,9 @@ var
 begin
   inherited CreateNew(nil);
 
-  ApplyIdeMatchingStyle(Self);
-
   Caption := 'Jota IDE Wizards';
-  BorderStyle := bsDialog;
+  BorderStyle := bsSingle;
+  BorderIcons := [biSystemMenu];
   Position := poScreenCenter;
   ClientWidth := FormWidth;
 
@@ -94,6 +93,8 @@ begin
   BtnObjectSqlScript.ModalResult := mrNo;
 
   ClientHeight := BtnObjectSqlScript.Top + BtnObjectSqlScript.Height + Margin;
+
+  ApplyIdeMatchingStyle(Self);
 end;
 
 procedure TJotaSqlConvertChoiceForm.FormKeyPressHandler(Sender: TObject; var Key: Char);

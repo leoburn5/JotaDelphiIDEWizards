@@ -9,21 +9,21 @@ package JotaIDEWizards;
 {$EXTENDEDSYNTAX ON}
 {$IMPORTEDDATA ON}
 {$IOCHECKS ON}
-{$LOCALSYMBOLS ON}
+{$LOCALSYMBOLS OFF}
 {$LONGSTRINGS ON}
 {$OPENSTRINGS ON}
-{$OPTIMIZATION OFF}
-{$OVERFLOWCHECKS ON}
-{$RANGECHECKS ON}
-{$REFERENCEINFO ON}
+{$OPTIMIZATION ON}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO OFF}
 {$SAFEDIVIDE OFF}
-{$STACKFRAMES ON}
+{$STACKFRAMES OFF}
 {$TYPEDADDRESS OFF}
 {$VARSTRINGCHECKS ON}
 {$WRITEABLECONST OFF}
 {$MINENUMSIZE 1}
 {$IMAGEBASE $400000}
-{$DEFINE DEBUG}
+{$DEFINE RELEASE}
 {$ENDIF IMPLICITBUILDING}
 {$DESCRIPTION 'Jota IDE Wizards - atalhos e experts personalizados para a IDE do Delphi'}
 {$DESIGNONLY}
@@ -41,6 +41,7 @@ contains
   Jota.IDEWizards.Toast in 'Source\Jota.IDEWizards.Toast.pas',
   Jota.IDEWizards.SqlConvertChoiceDialog in 'Source\Jota.IDEWizards.SqlConvertChoiceDialog.pas',
   Jota.IDEWizards.KeyBindings in 'Source\Jota.IDEWizards.KeyBindings.pas',
+  Jota.IDEWizards.SplashScreen in 'Source\Jota.IDEWizards.SplashScreen.pas',
   Jota.IDEWizards.Register in 'Source\Jota.IDEWizards.Register.pas';
 
 end.

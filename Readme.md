@@ -23,6 +23,7 @@ O toast ("Script convertido e copiado para a área de transferência") aparece n
 - `Jota.IDEWizards.Toast.pas` — toast simples (`ShowToast`), form sem borda com fade in/out, usado para feedback rápido sem interromper o fluxo.
 - `Jota.IDEWizards.SqlConvertChoiceDialog.pas` — diálogo modal simples (`AskSqlConvertTarget`) perguntando para qual formato Delphi converter um SQL puro.
 - `Jota.IDEWizards.Theming.pas` — aplica aos formulários do projeto (`ApplyIdeMatchingStyle`) o VCL Style "Windows11 Modern Light" ou "Windows11 Modern Dark", conforme o tema atual da IDE (via `IOTAIDEThemingServices`), sem alterar o estilo global da IDE.
+- `Jota.IDEWizards.SplashScreen.pas` — registra o ícone (24x24) e a legenda "Jota Delphi IDE Wizards <versão>" na splash screen da IDE, via `SplashScreenServices.AddPluginBitmap` (carrega o PNG de `icons\icon24.png`).
 - `Jota.IDEWizards.Register.pas` — registra/desregistra os wizards junto à IDE (`initialization`/`finalization`).
 
 ## Como instalar
@@ -41,6 +42,10 @@ O toast ("Script convertido e copiado para a área de transferência") aparece n
 4. Deve aparecer uma caixa de mensagem com o texto selecionado (ou `"(nenhum texto selecionado)"` se nada estiver selecionado).
 
 Para desinstalar/desabilitar: **Component → Install Packages**, desmarque "Jota IDE Wizards".
+
+## Splash screen
+
+Ao carregar, o pacote registra um ícone e a legenda "Jota Delphi IDE Wizards <versão>" na splash screen da IDE (`SplashScreenServices.AddPluginBitmap`, disponível desde o Delphi 2005). O ícone é um PNG 24x24 carregado em tempo de execução de `icons\icon24.png`, dentro da pasta do projeto — esse arquivo precisa continuar existindo nesse caminho para o ícone aparecer (se não existir, a entrada da splash screen simplesmente não é adicionada, sem erro). A versão exibida é controlada pela constante `JotaIDEWizardsVersion` em `Jota.IDEWizards.SplashScreen.pas`.
 
 ## Compatibilidade
 
