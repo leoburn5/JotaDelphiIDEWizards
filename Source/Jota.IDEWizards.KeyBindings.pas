@@ -34,6 +34,8 @@ type
   private
     procedure ShowSelectedTextHandler(const Context: IOTAKeyContext;
       KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
+    procedure JotaMenuHandler(const Context: IOTAKeyContext;
+      KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
   public
     { IOTAKeyboardBinding }
     function GetBindingType: TBindingType;
@@ -50,7 +52,8 @@ uses
   Jota.IDEWizards.OTAUtils,
   Jota.IDEWizards.SqlDelphiConverter,
   Jota.IDEWizards.Toast,
-  Jota.IDEWizards.SqlConvertChoiceDialog;
+  Jota.IDEWizards.SqlConvertChoiceDialog,
+  Jota.IDEWizards.JotaMenu;
 
 { TJotaKeyBindings }
 
@@ -75,6 +78,19 @@ procedure TJotaKeyBindings.BindKeyboard(const BindingServices: IOTAKeyBindingSer
 begin
   BindingServices.AddKeyBinding([TextToShortCut('Ctrl+Alt+J')],
     ShowSelectedTextHandler, nil);
+  BindingServices.AddKeyBinding([ShortCut(Ord('J'), [ssCtrl, ssShift])],
+    JotaMenuHandler, nil);
+end;
+
+procedure TJotaKeyBindings.JotaMenuHandler(const Context: IOTAKeyContext;
+  KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
+begin
+  case ShowJotaEditorMenu of
+    emcSyncEdit:
+      BindingResult := krUnhandled;
+  else
+    BindingResult := krHandled;
+  end;
 end;
 
 procedure TJotaKeyBindings.ShowSelectedTextHandler(const Context: IOTAKeyContext;

@@ -32,7 +32,13 @@ package JotaIDEWizards;
 requires
   rtl,
   vcl,
-  designide;
+  dbrtl,
+  designide,
+  FireDAC,
+  FireDACCommon,
+  FireDACCommonDriver,
+  FireDACPgDriver,
+  vclFireDAC;
 
 contains
   Jota.IDEWizards.OTAUtils in 'Source\Jota.IDEWizards.OTAUtils.pas',
@@ -42,6 +48,19 @@ contains
   Jota.IDEWizards.SqlConvertChoiceDialog in 'Source\Jota.IDEWizards.SqlConvertChoiceDialog.pas',
   Jota.IDEWizards.KeyBindings in 'Source\Jota.IDEWizards.KeyBindings.pas',
   Jota.IDEWizards.SplashScreen in 'Source\Jota.IDEWizards.SplashScreen.pas',
+  Jota.IDEWizards.NewFMTBCDFieldDialog in 'Source\Jota.IDEWizards.NewFMTBCDFieldDialog.pas',
+  Jota.IDEWizards.UsesClause in 'Source\Jota.IDEWizards.UsesClause.pas',
+  Jota.IDEWizards.FieldWizards in 'Source\Jota.IDEWizards.FieldWizards.pas',
+  Jota.IDEWizards.Config in 'Source\Jota.IDEWizards.Config.pas',
+  Jota.IDEWizards.ConfigDialog in 'Source\Jota.IDEWizards.ConfigDialog.pas',
+  Jota.IDEWizards.Metadata in 'Source\Jota.IDEWizards.Metadata.pas',
+  Jota.IDEWizards.MetadataActions in 'Source\Jota.IDEWizards.MetadataActions.pas',
+  Jota.IDEWizards.SqlEntity in 'Source\Jota.IDEWizards.SqlEntity.pas',
+  Jota.IDEWizards.SqlEntityDialog in 'Source\Jota.IDEWizards.SqlEntityDialog.pas',
+  Jota.IDEWizards.SqlEntityWizard in 'Source\Jota.IDEWizards.SqlEntityWizard.pas',
+  Jota.IDEWizards.JotaMenu in 'Source\Jota.IDEWizards.JotaMenu.pas',
   Jota.IDEWizards.Register in 'Source\Jota.IDEWizards.Register.pas';
 
 end.
+
+

@@ -8,6 +8,7 @@ unit Jota.IDEWizards.OTAUtils;
 interface
 
 uses
+  System.Types,
   ToolsAPI;
 
 /// <summary>
@@ -36,10 +37,19 @@ function GetSelectedText: string;
 /// </summary>
 procedure ReplaceSelectedText(const NewText: string);
 
+function InsertTextAtCursor(const AText: string): Boolean;
+function GetCursorColumn: Integer;
+function GetEditorPopupPoint: TPoint;
+function FindImplementationInsertOffset(const ASource: UTF8String): Integer;
+function InsertTextAtCursorAndImplementation(const ACursorText, AImplementationText: string;
+  out AImplementationFound: Boolean): Boolean;
+
 implementation
 
 uses
-  System.SysUtils;
+  Winapi.Windows,
+  System.SysUtils,
+  Vcl.Controls;
 
 function GetActiveSourceEditor: IOTASourceEditor;
 var
@@ -144,6 +154,204 @@ begin
   end;
 
   EditView.Paint;
+end;
+
+function InsertTextAtCursor(const AText: string): Boolean;
+var
+  SourceEditor: IOTASourceEditor;
+  EditView: IOTAEditView;
+  EditWriter: IOTAEditWriter;
+  EditPos: TOTAEditPos;
+  CharPos: TOTACharPos;
+  InsertPos: Longint;
+begin
+  Result := False;
+  SourceEditor := GetActiveSourceEditor;
+  EditView := GetActiveEditView;
+  if (SourceEditor <> nil) and (EditView <> nil) then
+  begin
+    EditPos := EditView.CursorPos;
+    EditView.ConvertPos(True, EditPos, CharPos);
+    InsertPos := EditView.CharPosToPos(CharPos);
+
+    EditWriter := SourceEditor.CreateUndoableWriter;
+    try
+      EditWriter.CopyTo(InsertPos);
+      EditWriter.Insert(PAnsiChar(UTF8Encode(AText)));
+    finally
+      EditWriter := nil;
+    end;
+
+    EditView.Paint;
+    Result := True;
+  end;
+end;
+
+function GetCursorColumn: Integer;
+var
+  EditView: IOTAEditView;
+begin
+  Result := 0;
+  EditView := GetActiveEditView;
+  if EditView <> nil then
+    Result := EditView.CursorPos.Col;
+end;
+
+function GetEditorPopupPoint: TPoint;
+var
+  Info: TGUIThreadInfo;
+begin
+  FillChar(Info, SizeOf(Info), 0);
+  Info.cbSize := SizeOf(Info);
+  if GetGUIThreadInfo(GetCurrentThreadId, Info) and (Info.hwndCaret <> 0) then
+  begin
+    Result := Point(Info.rcCaret.Left, Info.rcCaret.Bottom);
+    Winapi.Windows.ClientToScreen(Info.hwndCaret, Result);
+  end
+  else
+    Result := Mouse.CursorPos;
+end;
+
+function ReadEditorText(const ASourceEditor: IOTASourceEditor): UTF8String;
+const
+  ChunkSize = 32768;
+var
+  Reader: IOTAEditReader;
+  Chunk: UTF8String;
+  Position, ReadCount: Integer;
+begin
+  Result := '';
+  Reader := ASourceEditor.CreateReader;
+  Position := 0;
+  repeat
+    SetLength(Chunk, ChunkSize);
+    ReadCount := Reader.GetText(Position, PAnsiChar(Chunk), ChunkSize);
+    SetLength(Chunk, ReadCount);
+    Result := Result + Chunk;
+    Inc(Position, ReadCount);
+  until ReadCount < ChunkSize;
+end;
+
+function FindImplementationInsertOffset(const ASource: UTF8String): Integer;
+var
+  I, J, Len, InitPos, EndPos, Target: Integer;
+  Token: string;
+begin
+  InitPos := 0;
+  EndPos := 0;
+  Len := Length(ASource);
+  I := 1;
+  while I <= Len do
+  begin
+    if ASource[I] = '{' then
+    begin
+      while (I <= Len) and (ASource[I] <> '}') do
+        Inc(I);
+      Inc(I);
+    end
+    else if (ASource[I] = '(') and (I < Len) and (ASource[I + 1] = '*') then
+    begin
+      J := Pos(UTF8String('*)'), ASource, I + 2);
+      if J = 0 then
+        I := Len + 1
+      else
+        I := J + 2;
+    end
+    else if (ASource[I] = '/') and (I < Len) and (ASource[I + 1] = '/') then
+    begin
+      while (I <= Len) and not CharInSet(ASource[I], [#10, #13]) do
+        Inc(I);
+    end
+    else if ASource[I] = '''' then
+    begin
+      Inc(I);
+      while (I <= Len) and (ASource[I] <> '''') do
+        Inc(I);
+      Inc(I);
+    end
+    else if CharInSet(ASource[I], ['A'..'Z', 'a'..'z', '_']) then
+    begin
+      J := I;
+      while (J <= Len) and CharInSet(ASource[J], ['A'..'Z', 'a'..'z', '_', '0'..'9']) do
+        Inc(J);
+      Token := LowerCase(string(Copy(ASource, I, J - I)));
+      if (InitPos = 0) and ((Token = 'initialization') or (Token = 'finalization')) then
+        InitPos := I;
+      if (Token = 'end') and (J <= Len) and (ASource[J] = '.') then
+        EndPos := I;
+      I := J;
+    end
+    else
+      Inc(I);
+  end;
+
+  if InitPos > 0 then
+    Target := InitPos
+  else
+    Target := EndPos;
+
+  if Target > 0 then
+  begin
+    while (Target > 1) and (ASource[Target - 1] <> #10) do
+      Dec(Target);
+    Result := Target - 1;
+  end
+  else
+    Result := -1;
+end;
+
+function InsertTextAtCursorAndImplementation(const ACursorText, AImplementationText: string;
+  out AImplementationFound: Boolean): Boolean;
+var
+  SourceEditor: IOTASourceEditor;
+  EditView: IOTAEditView;
+  EditWriter: IOTAEditWriter;
+  EditPos: TOTAEditPos;
+  CharPos: TOTACharPos;
+  CursorPos, ImplementationPos: Longint;
+begin
+  Result := False;
+  AImplementationFound := False;
+  SourceEditor := GetActiveSourceEditor;
+  EditView := GetActiveEditView;
+  if (SourceEditor <> nil) and (EditView <> nil) then
+  begin
+    ImplementationPos := FindImplementationInsertOffset(ReadEditorText(SourceEditor));
+    AImplementationFound := ImplementationPos >= 0;
+
+    EditPos := EditView.CursorPos;
+    EditView.ConvertPos(True, EditPos, CharPos);
+    CursorPos := EditView.CharPosToPos(CharPos);
+
+    EditWriter := SourceEditor.CreateUndoableWriter;
+    try
+      if not AImplementationFound then
+      begin
+        EditWriter.CopyTo(CursorPos);
+        EditWriter.Insert(PAnsiChar(UTF8Encode(ACursorText + sLineBreak + sLineBreak +
+          AImplementationText)));
+      end
+      else if CursorPos <= ImplementationPos then
+      begin
+        EditWriter.CopyTo(CursorPos);
+        EditWriter.Insert(PAnsiChar(UTF8Encode(ACursorText)));
+        EditWriter.CopyTo(ImplementationPos);
+        EditWriter.Insert(PAnsiChar(UTF8Encode(AImplementationText + sLineBreak)));
+      end
+      else
+      begin
+        EditWriter.CopyTo(ImplementationPos);
+        EditWriter.Insert(PAnsiChar(UTF8Encode(AImplementationText + sLineBreak)));
+        EditWriter.CopyTo(CursorPos);
+        EditWriter.Insert(PAnsiChar(UTF8Encode(ACursorText)));
+      end;
+    finally
+      EditWriter := nil;
+    end;
+
+    EditView.Paint;
+    Result := True;
+  end;
 end;
 
 end.

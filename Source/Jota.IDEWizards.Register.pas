@@ -13,7 +13,9 @@ implementation
 uses
   ToolsAPI,
   Jota.IDEWizards.KeyBindings,
-  Jota.IDEWizards.SplashScreen;
+  Jota.IDEWizards.JotaMenu,
+  Jota.IDEWizards.SplashScreen,
+  Jota.IDEWizards.MetadataActions;
 
 var
   JotaKeyBindingIndex: Integer = -1;
@@ -22,11 +24,15 @@ procedure RegisterJotaWizards;
 begin
   JotaKeyBindingIndex := (BorlandIDEServices as IOTAKeyboardServices)
     .AddKeyboardBinding(TJotaKeyBindings.Create);
+  RegisterJotaMenu;
   RegisterSplashScreen;
+  LoadJotaMetadataAtStartup;
 end;
 
 procedure UnregisterJotaWizards;
 begin
+  UnregisterJotaMenu;
+
   if JotaKeyBindingIndex >= 0 then
   begin
     (BorlandIDEServices as IOTAKeyboardServices).RemoveKeyboardBinding(JotaKeyBindingIndex);
