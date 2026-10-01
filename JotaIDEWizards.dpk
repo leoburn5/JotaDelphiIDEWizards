@@ -32,6 +32,7 @@ package JotaIDEWizards;
 requires
   rtl,
   vcl,
+  dbrtl,
   designide;
 
 contains
@@ -42,6 +43,10 @@ contains
   Jota.IDEWizards.SqlConvertChoiceDialog in 'Source\Jota.IDEWizards.SqlConvertChoiceDialog.pas',
   Jota.IDEWizards.KeyBindings in 'Source\Jota.IDEWizards.KeyBindings.pas',
   Jota.IDEWizards.SplashScreen in 'Source\Jota.IDEWizards.SplashScreen.pas',
+  Jota.IDEWizards.NewFMTBCDFieldDialog in 'Source\Jota.IDEWizards.NewFMTBCDFieldDialog.pas',
+  Jota.IDEWizards.UsesClause in 'Source\Jota.IDEWizards.UsesClause.pas',
+  Jota.IDEWizards.FieldWizards in 'Source\Jota.IDEWizards.FieldWizards.pas',
+  Jota.IDEWizards.JotaMenu in 'Source\Jota.IDEWizards.JotaMenu.pas',
   Jota.IDEWizards.Register in 'Source\Jota.IDEWizards.Register.pas';
 
 end.

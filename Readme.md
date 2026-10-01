@@ -14,6 +14,12 @@ Pacote de design-time (expert de IDE) para o Delphi. Primeiro atalho, só de tes
 
 O toast ("Script convertido e copiado para a área de transferência") aparece no canto da tela e some sozinho, sem roubar o foco do editor.
 
+## Menu Jota IDE Wizards (Ctrl+Shift+J)
+
+**Ctrl+Shift+J** no Form Designer abre um menu popup na posição do mouse (também disponível em **Tools → Jota IDE Wizards**). Se houver um dataset selecionado no designer, o menu é pulado e o diálogo **Novo campo FMTBCD** abre direto, já com esse dataset. No editor de código o atalho é ignorado de propósito, para não conflitar com o SyncEdit nativo do Delphi.
+
+1. **Novo campo FMTBCD**: cria um `TFMTBCDField` persistente em qualquer `TDataSet` do form/data module ativo (`TFDQuery`, `TFDMemTable`, `TClientDataSet`...). O dataset selecionado (ou o dataset do campo selecionado) já vem escolhido. Padrões: `Precision = 21`, `Scale (Size) = 2` (compatível com `numeric(21,2)`), `DisplayFormat = '#,##0.00;(#,##0.00)'`, `EditFormat = '0.00'`. O `EditFormat` não usa separador de milhar porque a conversão string→BCD na edição não o aceita. `Name`, `DisplayFormat` e `EditFormat` são recalculados ao mudar dataset/FieldName/Scale, enquanto não forem editados à mão. Se o dataset estiver aberto, ele é fechado antes de criar o campo. Depois de criar, `Data.FmtBcd` é adicionada ao `uses` da interface se ainda não estiver declarada (se já estiver no `uses` da implementation, fica como está).
+
 ## Arquivos
 
 - `JotaIDEWizards.dpk` — projeto do pacote (design-only, requer `designide`).
@@ -24,6 +30,10 @@ O toast ("Script convertido e copiado para a área de transferência") aparece n
 - `Jota.IDEWizards.SqlConvertChoiceDialog.pas` — diálogo modal simples (`AskSqlConvertTarget`) perguntando para qual formato Delphi converter um SQL puro.
 - `Jota.IDEWizards.Theming.pas` — aplica aos formulários do projeto (`ApplyIdeMatchingStyle`) o VCL Style "Windows11 Modern Light" ou "Windows11 Modern Dark", conforme o tema atual da IDE (via `IOTAIDEThemingServices`), sem alterar o estilo global da IDE.
 - `Jota.IDEWizards.SplashScreen.pas` — registra o ícone (24x24) e a legenda "Jota Delphi IDE Wizards <versão>" na splash screen da IDE, via `SplashScreenServices.AddPluginBitmap` (carrega o PNG de `icons\icon24.png`).
+- `Jota.IDEWizards.JotaMenu.pas` — menu popup do Ctrl+Shift+J (ação no ActionList da IDE, desabilitada com o editor de código em foco) e submenu em Tools.
+- `Jota.IDEWizards.FieldWizards.pas` — wizards de campos; `RunNewFMTBCDFieldWizard` cria o campo pelo `IDesigner` do form ativo.
+- `Jota.IDEWizards.UsesClause.pas` — `EnsureUnitInInterfaceUses`: adiciona uma unit ao `uses` da interface direto no buffer do editor (com undo), ignorando comentários e strings.
+- `Jota.IDEWizards.NewFMTBCDFieldDialog.pas` — diálogo do "Novo campo FMTBCD" e `BuildBcdFormats`.
 - `Jota.IDEWizards.Register.pas` — registra/desregistra os wizards junto à IDE (`initialization`/`finalization`).
 
 ## Como instalar
