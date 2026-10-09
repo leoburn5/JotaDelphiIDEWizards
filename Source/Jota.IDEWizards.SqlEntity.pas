@@ -19,6 +19,8 @@ function DescribeSqlColumns(const ASql: string): TArray<TJotaSqlColumn>;
 function FieldTypeToDelphiType(AFieldType: TFieldType): string;
 function ExtractFirstFromTable(const ASql: string): string;
 function SuggestEntityClassName(const ASql: string): string;
+function TableNameToPascalCase(const ATable: string): string;
+function IsDelphiReservedWord(const AName: string): Boolean;
 function GenerateObjectWithProperties(const AClassName: string;
   const AColumns: TArray<TJotaSqlColumn>; const AIndent: string): string;
 function GenerateRecord(const ARecordName: string;
@@ -311,14 +313,19 @@ begin
   Result := UpperCase(Copy(APart, 1, 1)) + Rest;
 end;
 
-function SuggestEntityClassName(const ASql: string): string;
+function TableNameToPascalCase(const ATable: string): string;
 var
   Part: string;
 begin
-  Result := 'TDados';
-  for Part in RemoveTablePrefixes(ExtractFirstFromTable(ASql)).Split(['_']) do
+  Result := '';
+  for Part in RemoveTablePrefixes(ATable).Split(['_']) do
     if Part <> '' then
       Result := Result + ToPascalCasePart(Part);
+end;
+
+function SuggestEntityClassName(const ASql: string): string;
+begin
+  Result := 'TDados' + TableNameToPascalCase(ExtractFirstFromTable(ASql));
   if not IsValidIdent(Result) then
     Result := 'TDados';
 end;
@@ -468,6 +475,11 @@ begin
   finally
     Used.Free;
   end;
+end;
+
+function IsDelphiReservedWord(const AName: string): Boolean;
+begin
+  Result := IsReservedWord(AName);
 end;
 
 function EscapeIdentifier(const AName: string): string;

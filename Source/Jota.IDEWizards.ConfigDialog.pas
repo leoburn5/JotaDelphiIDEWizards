@@ -10,6 +10,7 @@ uses
   System.SysUtils,
   System.Classes,
   Winapi.Windows,
+  Winapi.ShellAPI,
   Vcl.Forms,
   Vcl.Controls,
   Vcl.StdCtrls,
@@ -51,6 +52,7 @@ type
       AMachine: Word; const ABits: string): Boolean;
     procedure MostrarSenhaClick(Sender: TObject);
     procedure VendorLibBrowseClick(Sender: TObject);
+    procedure OpenConfigFolderClick(Sender: TObject);
     procedure FormCloseQueryHandler(Sender: TObject; var CanClose: Boolean);
     procedure Fail(AControl: TWinControl; const AMessage: string);
     function Validate(const AConfig: TJotaBaseDadosTrabalho): Boolean;
@@ -63,7 +65,7 @@ type
 
 constructor TJotaConfigForm.CreateDialog;
 var
-  BtnOk, BtnCancel: TButton;
+  BtnOk, BtnCancel, BtnOpenFolder: TButton;
   lblArquivo: TLabel;
   GroupWidth, Y: Integer;
 begin
@@ -147,6 +149,14 @@ begin
   BtnOk.Default := True;
   BtnOk.ModalResult := mrOk;
   BtnOk.SetBounds(BtnCancel.Left - 8 - ButtonWidth, Y, ButtonWidth, ButtonHeight);
+
+  BtnOpenFolder := TButton.Create(Self);
+  BtnOpenFolder.Parent := Self;
+  BtnOpenFolder.Caption := 'Abrir &pasta';
+  BtnOpenFolder.Hint := 'Abre no Explorer a pasta do arquivo de configuração';
+  BtnOpenFolder.ShowHint := True;
+  BtnOpenFolder.SetBounds(Margin, Y, ButtonWidth, ButtonHeight);
+  BtnOpenFolder.OnClick := OpenConfigFolderClick;
 
   ClientHeight := Y + ButtonHeight + Margin;
 
@@ -248,6 +258,19 @@ begin
   finally
     Dialog.Free;
   end;
+end;
+
+procedure TJotaConfigForm.OpenConfigFolderClick(Sender: TObject);
+var
+  FilePath, Parameters: string;
+begin
+  FilePath := GetJotaConfigFilePath;
+  ForceDirectories(ExtractFilePath(FilePath));
+  if FileExists(FilePath) then
+    Parameters := '/select,"' + FilePath + '"'
+  else
+    Parameters := '"' + ExtractFilePath(FilePath) + '"';
+  ShellExecute(Handle, 'open', 'explorer.exe', PChar(Parameters), nil, SW_SHOWNORMAL);
 end;
 
 function TJotaConfigForm.GetConfig: TJotaBaseDadosTrabalho;

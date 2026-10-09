@@ -49,23 +49,16 @@ uses
   Vcl.Graphics,
   Vcl.Imaging.PngImage,
   Vcl.Forms,
-  ToolsAPI;
+  ToolsAPI,
+  Jota.IDEWizards.Theming;
 
 const
   JotaIDEWizardsFallbackVersion = '1.0.0';
   SplashIconSize = 24;
 
 function GetSplashIconPath: string;
-var
-  PackageDir: string;
-  ProjectDir: string;
 begin
-  // O pacote compilado (.bpl) fica em <projeto>\bpl\; os icones ficam
-  // em <projeto>\icons\ - calculado a partir do proprio .bpl, sem
-  // caminho fixo de maquina.
-  PackageDir := ExtractFilePath(GetModuleName(HInstance));
-  ProjectDir := ExtractFilePath(ExcludeTrailingPathDelimiter(PackageDir));
-  Result := ProjectDir + 'icons\icon24.png';
+  Result := FindProjectFile('icons\icon24.png');
 end;
 
 function FindSplashScreenBackgroundColor: TColor;

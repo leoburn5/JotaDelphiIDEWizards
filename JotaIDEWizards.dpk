@@ -59,7 +59,10 @@ contains
   Jota.IDEWizards.SqlEntityDialog in 'Source\Jota.IDEWizards.SqlEntityDialog.pas',
   Jota.IDEWizards.SqlEntityWizard in 'Source\Jota.IDEWizards.SqlEntityWizard.pas',
   Jota.IDEWizards.JotaMenu in 'Source\Jota.IDEWizards.JotaMenu.pas',
-  Jota.IDEWizards.Register in 'Source\Jota.IDEWizards.Register.pas';
+  Jota.IDEWizards.Register in 'Source\Jota.IDEWizards.Register.pas',
+  Jota.IDEWizards.TableScript in 'Source\Jota.IDEWizards.TableScript.pas',
+  Jota.IDEWizards.TableScriptDialog in 'Source\Jota.IDEWizards.TableScriptDialog.pas',
+  Jota.IDEWizards.TableScriptWizard in 'Source\Jota.IDEWizards.TableScriptWizard.pas';
 
 end.
 

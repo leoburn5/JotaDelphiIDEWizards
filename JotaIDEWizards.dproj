@@ -292,6 +292,9 @@
         <DCCReference Include="Source\Jota.IDEWizards.SqlEntityWizard.pas"/>
         <DCCReference Include="Source\Jota.IDEWizards.JotaMenu.pas"/>
         <DCCReference Include="Source\Jota.IDEWizards.Register.pas"/>
+        <DCCReference Include="Source\Jota.IDEWizards.TableScript.pas"/>
+        <DCCReference Include="Source\Jota.IDEWizards.TableScriptDialog.pas"/>
+        <DCCReference Include="Source\Jota.IDEWizards.TableScriptWizard.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

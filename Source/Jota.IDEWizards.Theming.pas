@@ -55,6 +55,8 @@ uses
 /// </summary>
 procedure ApplyIdeMatchingStyle(AForm: TForm);
 
+function FindProjectFile(const ARelativePath: string): string;
+
 implementation
 
 uses
@@ -71,17 +73,31 @@ function DwmSetWindowAttribute(hWnd: HWND; dwAttribute: DWORD;
   pvAttribute: Pointer; cbAttribute: DWORD): HRESULT; stdcall;
   external 'dwmapi.dll';
 
-function GetProjectIconPath: string;
+function FindProjectFile(const ARelativePath: string): string;
 var
-  PackageDir: string;
-  ProjectDir: string;
+  Dir, Parent, Candidate: string;
 begin
-  // O pacote compilado (.bpl) fica em <projeto>\bpl\; os icones ficam
-  // em <projeto>\icons\ - calculado a partir do proprio .bpl, sem
-  // caminho fixo de maquina.
-  PackageDir := ExtractFilePath(GetModuleName(HInstance));
-  ProjectDir := ExtractFilePath(ExcludeTrailingPathDelimiter(PackageDir));
-  Result := ProjectDir + 'icons\JotaIDEWizards.ico';
+  Result := '';
+  Dir := ExcludeTrailingPathDelimiter(ExtractFilePath(GetModuleName(HInstance)));
+  while (Result = '') and (Dir <> '') do
+  begin
+    Candidate := IncludeTrailingPathDelimiter(Dir) + ARelativePath;
+    if FileExists(Candidate) then
+      Result := Candidate
+    else
+    begin
+      Parent := ExtractFileDir(Dir);
+      if SameText(Parent, Dir) then
+        Dir := ''
+      else
+        Dir := Parent;
+    end;
+  end;
+end;
+
+function GetProjectIconPath: string;
+begin
+  Result := FindProjectFile('icons\JotaIDEWizards.ico');
 end;
 
 procedure ApplyIdeMatchingStyle(AForm: TForm);

@@ -23,7 +23,8 @@ O toast ("Script convertido e copiado para a área de transferência") aparece n
 1. **Configurar** — abre o diálogo de configurações (ver abaixo). Ao confirmar com OK, recarrega os metadados.
 2. **Recarregar metadados** — ver "Metadados da base de trabalho".
 3. **SQL Query para Entidade** — ver abaixo.
-4. **SyncEdit** — repassa o Ctrl+Shift+J para o SyncEdit nativo do Delphi (o handler do Jota devolve `krUnhandled` e a IDE segue para o próximo binding). Fechar o menu com Esc não ativa o SyncEdit.
+4. **Tabela para Script** — ver abaixo.
+5. **SyncEdit** — repassa o Ctrl+Shift+J para o SyncEdit nativo do Delphi (o handler do Jota devolve `krUnhandled` e a IDE segue para o próximo binding). Fechar o menu com Esc não ativa o SyncEdit.
 
 **No Form Designer** (menu na posição do mouse):
 
@@ -44,6 +45,21 @@ Em seguida abre um menu na posição do cursor:
 1. **Converter em TObject Com Property** — pede o **Nome da classe** (sugestão `TDados` + primeira tabela do FROM, sem os prefixos `spk`/`tb`/`_` e com cada parte separada por `_` iniciando em maiúscula: `tb_cliente_endereco` → `TDadosClienteEndereco`) e insere na posição do cursor uma classe `class(TObject)` com um field `F<coluna>` e uma `property <coluna>` por coluna retornada, com o nome exato da coluna. Tipos: string/memo → `string`; int2/int4/int8 → `SmallInt`/`Integer`/`Int64`; numeric/decimal/float8 → `Double`; float4 → `Single`; money → `Currency`; boolean → `Boolean`; date → `TDate`; time → `TTime`; timestamp → `TDateTime`; uuid → `TGUID`; bytea → `TBytes`; demais → `Variant`. Nomes inválidos como identificador têm os caracteres inválidos trocados por `_`; palavras reservadas recebem `&` na property; nomes repetidos (sem diferenciar maiúsculas) recebem sufixo `_2`, `_3`...
 2. **Converter em Record** — pede o **Nome do record** (mesma sugestão `TDados...`) e insere na posição do cursor um `record` com um campo por coluna retornada, com o nome exato da coluna e os mesmos tipos e regras de nome do item 1 (palavra reservada recebe `&`).
 3. **Converter em Interfaced Object** — pede **Nome da classe** e **Nome da interface** (a interface acompanha a classe trocando o `T` inicial por `I`, até ser editada à mão). Gera no cursor a interface (com GUID novo) e a classe `class(TInterfacedObject, IDados...)` com `class function New`, fields `F<coluna>` e, por coluna, um getter e um setter fluente sobrecarregados: `function id: Integer; overload;` e `function id(const Value: Integer): IDadosCliente; overload;` (o setter grava o field e retorna `Self`). Os corpos dos métodos são inseridos no final da seção implementation (antes de `initialization`/`finalization` ou do `end.` final). Uma coluna chamada `new` vira `new_2`, para não conflitar com `New`.
+
+### Tabela para Script
+
+Formulário com o campo **Tabela** (filtra o grid a cada tecla, como `like '%texto%'` no nome da tabela, sem diferenciar maiúsculas; com `.` no texto filtra por `esquema.tabela`), o grid **Esquema / Tabela / Chave primária** (só tabelas, a partir dos metadados carregados) e o group box **Scripts:** com Insert, Upsert, Update e Delete. Setas, PageUp/PageDown no campo movem a seleção do grid; Enter ou duplo clique gera. Upsert, Update e Delete usam sempre a chave primária e ficam desabilitados para tabela sem PK.
+
+Os scripts são inseridos no cursor como constantes string (mesmo formato do Ctrl+Alt+J), com parâmetros `:coluna`:
+
+- `cSqlInsert<Tabela>`: `INSERT INTO ... (colunas) VALUES (:colunas)`;
+- `cSqlUpsert<Tabela>`: o insert + `ON CONFLICT (pk) DO UPDATE SET coluna = EXCLUDED.coluna` (ou `DO NOTHING` se todas as colunas forem PK);
+- `cSqlUpdate<Tabela>`: `UPDATE ... SET colunas não-PK = :coluna WHERE pk = :pk`;
+- `cSqlDelete<Tabela>`: `DELETE FROM ... WHERE pk = :pk`.
+
+Com **Gerar Métodos de Replace** marcado, cada constante sai com seu próprio `const` e, logo abaixo, um bloco `var _Sql: string; begin ... end;` que carrega a constante em `_Sql`, troca cada parâmetro do script (`_Sql := FDMConexaoSPK.ReplaceSql(_Sql, ':coluna', aOrigemParam.coluna);`, ou `ReplaceSqlAsNull` quando a coluna faz parte de uma chave estrangeira) e termina com `FDMConexaoSPK.ExecSQL(_Sql);`. O bloco é um rascunho para ser movido à mão para o método certo.
+
+`<Tabela>` segue a mesma regra do nome de classe (sem `spk`/`tb`/`_`, em PascalCase). O esquema `public` é omitido; nomes com maiúsculas ou caracteres especiais vão entre aspas duplas.
 
 ### Metadados da base de trabalho
 

@@ -25,6 +25,7 @@ uses
   Jota.IDEWizards.MetadataActions,
   Jota.IDEWizards.OTAUtils,
   Jota.IDEWizards.SqlEntityWizard,
+  Jota.IDEWizards.TableScriptWizard,
   Jota.IDEWizards.FieldWizards;
 
 const
@@ -37,6 +38,7 @@ type
     FConfigAction: TAction;
     FReloadMetadataAction: TAction;
     FSqlEntityAction: TAction;
+    FTableScriptAction: TAction;
     FNewFMTBCDFieldAction: TAction;
     FPopupMenu: TPopupMenu;
     FEditorPopupMenu: TPopupMenu;
@@ -54,6 +56,7 @@ type
     procedure ConfigActionExecute(Sender: TObject);
     procedure ReloadMetadataActionExecute(Sender: TObject);
     procedure SqlEntityActionExecute(Sender: TObject);
+    procedure TableScriptActionExecute(Sender: TObject);
     procedure NewFMTBCDFieldActionExecute(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
@@ -83,6 +86,9 @@ begin
   FSqlEntityAction := CreateAction('JotaSqlEntityAction',
     '&3 - SQL Query para Entidade', SqlEntityActionExecute);
 
+  FTableScriptAction := CreateAction('JotaTableScriptAction',
+    '&4 - Tabela para Script', TableScriptActionExecute);
+
   FNewFMTBCDFieldAction := CreateAction('JotaNewFMTBCDFieldAction',
     '&3 - Novo campo FMTBCD', NewFMTBCDFieldActionExecute);
 
@@ -100,8 +106,9 @@ begin
   AddActionItem(FEditorPopupMenu.Items, FConfigAction);
   AddActionItem(FEditorPopupMenu.Items, FReloadMetadataAction);
   AddActionItem(FEditorPopupMenu.Items, FSqlEntityAction);
+  AddActionItem(FEditorPopupMenu.Items, FTableScriptAction);
   FSyncEditItem := TMenuItem.Create(FEditorPopupMenu);
-  FSyncEditItem.Caption := '&4 - SyncEdit';
+  FSyncEditItem.Caption := '&5 - SyncEdit';
   FEditorPopupMenu.Items.Add(FSyncEditItem);
 
   AddToolsMenu((BorlandIDEServices as INTAServices).MainMenu);
@@ -114,6 +121,7 @@ begin
   FreeAndNil(FPopupMenu);
   FreeAndNil(FShortcutAction);
   FreeAndNil(FNewFMTBCDFieldAction);
+  FreeAndNil(FTableScriptAction);
   FreeAndNil(FSqlEntityAction);
   FreeAndNil(FReloadMetadataAction);
   FreeAndNil(FConfigAction);
@@ -185,6 +193,7 @@ begin
     AddToolsItem('Configurar', FConfigAction);
     AddToolsItem('Recarregar metadados', FReloadMetadataAction);
     AddToolsItem('SQL Query para Entidade', FSqlEntityAction);
+    AddToolsItem('Tabela para Script', FTableScriptAction);
     AddToolsItem('Novo campo FMTBCD', FNewFMTBCDFieldAction);
 
     ToolsMenu.Add(FToolsMenuItem);
@@ -249,6 +258,11 @@ end;
 procedure TJotaMenu.SqlEntityActionExecute(Sender: TObject);
 begin
   RunSqlQueryToEntityWizard;
+end;
+
+procedure TJotaMenu.TableScriptActionExecute(Sender: TObject);
+begin
+  RunTableScriptWizard;
 end;
 
 procedure TJotaMenu.NewFMTBCDFieldActionExecute(Sender: TObject);
