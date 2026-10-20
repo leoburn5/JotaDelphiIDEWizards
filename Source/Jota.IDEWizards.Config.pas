@@ -26,9 +26,24 @@ type
     function ActiveVendorLib: string;
   end;
 
+  TJotaBaseDadosSequencias = record
+    Host: string;
+    Porta: Integer;
+    NomeBD: string;
+    Usuario: string;
+    Senha: string;
+    AplicacaoPreConexao: string;
+    PrefixoArquivosScript: string;
+    PastaArquivosScript: string;
+    class function Default: TJotaBaseDadosSequencias; static;
+    function IsConfigured: Boolean;
+  end;
+
 function GetJotaConfigFilePath: string;
 function LoadBaseDadosTrabalho: TJotaBaseDadosTrabalho;
-procedure SaveBaseDadosTrabalho(const AConfig: TJotaBaseDadosTrabalho);
+function LoadBaseDadosSequencias: TJotaBaseDadosSequencias;
+procedure SaveJotaConfig(const ATrabalho: TJotaBaseDadosTrabalho;
+  const ASequencias: TJotaBaseDadosSequencias);
 
 implementation
 
@@ -41,6 +56,10 @@ uses
 
 const
   JsonBaseDadosTrabalho = 'BaseDadosTrabalho';
+  JsonBaseDadosSequencias = 'BaseDadosSequencias';
+  JsonAplicacaoPreConexao = 'AplicacaoPreConexao';
+  JsonPrefixoArquivosScript = 'PrefixoArquivosScript';
+  JsonPastaArquivosScript = 'PastaArquivosScript';
   JsonHost = 'Host';
   JsonPorta = 'Porta';
   JsonNomeBD = 'NomeBD';
@@ -107,6 +126,23 @@ begin
 end;
 
 function TJotaBaseDadosTrabalho.IsConfigured: Boolean;
+begin
+  Result := (Host <> '') and (Porta > 0) and (NomeBD <> '') and (Usuario <> '');
+end;
+
+class function TJotaBaseDadosSequencias.Default: TJotaBaseDadosSequencias;
+begin
+  Result.Host := DefaultPostgreSQLHost;
+  Result.Porta := DefaultPostgreSQLPort;
+  Result.NomeBD := '';
+  Result.Usuario := '';
+  Result.Senha := '';
+  Result.AplicacaoPreConexao := '';
+  Result.PrefixoArquivosScript := '';
+  Result.PastaArquivosScript := '';
+end;
+
+function TJotaBaseDadosSequencias.IsConfigured: Boolean;
 begin
   Result := (Host <> '') and (Porta > 0) and (NomeBD <> '') and (Usuario <> '');
 end;
@@ -185,6 +221,32 @@ begin
   end;
 end;
 
+function LoadBaseDadosSequencias: TJotaBaseDadosSequencias;
+var
+  Root: TJSONObject;
+  Obj: TJSONObject;
+begin
+  Result := TJotaBaseDadosSequencias.Default;
+
+  Root := ReadRootObject(GetJotaConfigFilePath);
+  if Root <> nil then
+  try
+    if Root.TryGetValue<TJSONObject>(JsonBaseDadosSequencias, Obj) then
+    begin
+      Result.Host := ReadString(Obj, JsonHost, Result.Host);
+      Result.Porta := ReadInteger(Obj, JsonPorta, Result.Porta);
+      Result.NomeBD := ReadString(Obj, JsonNomeBD, '');
+      Result.Usuario := ReadString(Obj, JsonUsuario, '');
+      Result.Senha := DecodeSenha(ReadString(Obj, JsonSenha, ''));
+      Result.AplicacaoPreConexao := ReadString(Obj, JsonAplicacaoPreConexao, '');
+      Result.PrefixoArquivosScript := ReadString(Obj, JsonPrefixoArquivosScript, '');
+      Result.PastaArquivosScript := ReadString(Obj, JsonPastaArquivosScript, '');
+    end;
+  finally
+    Root.Free;
+  end;
+end;
+
 procedure WriteFileAtomically(const APath, AText: string);
 var
   TempPath: string;
@@ -197,7 +259,8 @@ begin
       [APath, SysErrorMessage(GetLastError)]);
 end;
 
-procedure SaveBaseDadosTrabalho(const AConfig: TJotaBaseDadosTrabalho);
+procedure SaveJotaConfig(const ATrabalho: TJotaBaseDadosTrabalho;
+  const ASequencias: TJotaBaseDadosSequencias);
 var
   Path: string;
   Root: TJSONObject;
@@ -220,16 +283,27 @@ begin
     Root := TJSONObject.Create;
   try
     Root.RemovePair(JsonBaseDadosTrabalho).Free;
-
     Obj := TJSONObject.Create;
     Root.AddPair(JsonBaseDadosTrabalho, Obj);
-    Obj.AddPair(JsonHost, AConfig.Host);
-    Obj.AddPair(JsonPorta, TJSONNumber.Create(AConfig.Porta));
-    Obj.AddPair(JsonNomeBD, AConfig.NomeBD);
-    Obj.AddPair(JsonUsuario, AConfig.Usuario);
-    Obj.AddPair(JsonSenha, EncodeSenha(AConfig.Senha));
-    Obj.AddPair(JsonVendorLib32, AConfig.VendorLib32);
-    Obj.AddPair(JsonVendorLib64, AConfig.VendorLib64);
+    Obj.AddPair(JsonHost, ATrabalho.Host);
+    Obj.AddPair(JsonPorta, TJSONNumber.Create(ATrabalho.Porta));
+    Obj.AddPair(JsonNomeBD, ATrabalho.NomeBD);
+    Obj.AddPair(JsonUsuario, ATrabalho.Usuario);
+    Obj.AddPair(JsonSenha, EncodeSenha(ATrabalho.Senha));
+    Obj.AddPair(JsonVendorLib32, ATrabalho.VendorLib32);
+    Obj.AddPair(JsonVendorLib64, ATrabalho.VendorLib64);
+
+    Root.RemovePair(JsonBaseDadosSequencias).Free;
+    Obj := TJSONObject.Create;
+    Root.AddPair(JsonBaseDadosSequencias, Obj);
+    Obj.AddPair(JsonHost, ASequencias.Host);
+    Obj.AddPair(JsonPorta, TJSONNumber.Create(ASequencias.Porta));
+    Obj.AddPair(JsonNomeBD, ASequencias.NomeBD);
+    Obj.AddPair(JsonUsuario, ASequencias.Usuario);
+    Obj.AddPair(JsonSenha, EncodeSenha(ASequencias.Senha));
+    Obj.AddPair(JsonAplicacaoPreConexao, ASequencias.AplicacaoPreConexao);
+    Obj.AddPair(JsonPrefixoArquivosScript, ASequencias.PrefixoArquivosScript);
+    Obj.AddPair(JsonPastaArquivosScript, ASequencias.PastaArquivosScript);
 
     WriteFileAtomically(Path, Root.Format(2));
   finally

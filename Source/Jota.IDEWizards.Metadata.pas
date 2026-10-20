@@ -101,7 +101,13 @@ type
 
   TJotaMetadataLoadResult = (mlrNotConfigured, mlrLoaded, mlrFailed);
 
+  EJotaConnectionError = class(Exception);
+
 function CreateBaseDadosTrabalhoConnection(const AConfig: TJotaBaseDadosTrabalho): TFDConnection;
+function CreateBaseDadosSequenciasConnection(const AConfig: TJotaBaseDadosSequencias;
+  const AVendorLib: string; out AUsesSsl: Boolean): TFDConnection;
+function BuildSequenciasSslParams(const AAplicacaoPreConexao: string): string;
+procedure RunPreConnectionApplication(const AFileName: string);
 function LoadJotaMetadata: TJotaMetadataLoadResult;
 function JotaMetadata: TJotaMetadata;
 function JotaMetadataLastError: string;
@@ -122,7 +128,8 @@ uses
   FireDAC.Phys,
   FireDAC.Phys.Intf,
   FireDAC.Phys.PG,
-  FireDAC.DApt;
+  FireDAC.DApt,
+  Winapi.Windows;
 
 const
   ExcludedSchemasFilter =
@@ -181,6 +188,7 @@ const
     ' order by n.nspname, c.relname, con.contype, con.conname';
 
   LoginTimeoutSeconds = 5;
+  PreConnectionTimeoutMs = 60000;
   JotaPgDriverID = 'JotaPG';
 
 var
@@ -339,25 +347,102 @@ begin
     [TableCount, ViewCount, ColumnCount, FLoadTimeMs]);
 end;
 
-function CreateBaseDadosTrabalhoConnection(const AConfig: TJotaBaseDadosTrabalho): TFDConnection;
+function CreatePgConnection(const AHost: string; APorta: Integer;
+  const ANomeBD, AUsuario, ASenha, AVendorLib, AAdvanced: string): TFDConnection;
 begin
-  PrepareDriverLink(AConfig.ActiveVendorLib);
+  PrepareDriverLink(AVendorLib);
   Result := TFDConnection.Create(nil);
   try
     Result.LoginPrompt := False;
     Result.ResourceOptions.SilentMode := True;
     Result.Params.DriverID := JotaPgDriverID;
-    Result.Params.Values['Server'] := AConfig.Host;
-    Result.Params.Values['Port'] := IntToStr(AConfig.Porta);
-    Result.Params.Database := AConfig.NomeBD;
-    Result.Params.UserName := AConfig.Usuario;
-    Result.Params.Password := AConfig.Senha;
+    Result.Params.Values['Server'] := AHost;
+    Result.Params.Values['Port'] := IntToStr(APorta);
+    Result.Params.Database := ANomeBD;
+    Result.Params.UserName := AUsuario;
+    Result.Params.Password := ASenha;
     Result.Params.Values['LoginTimeout'] := IntToStr(LoginTimeoutSeconds);
     Result.Params.Values['ApplicationName'] := 'Jota IDE Wizards';
+    if AAdvanced <> '' then
+      Result.Params.Values['PGAdvanced'] := AAdvanced;
   except
     Result.Free;
     raise;
   end;
+end;
+
+function CreateBaseDadosTrabalhoConnection(const AConfig: TJotaBaseDadosTrabalho): TFDConnection;
+begin
+  Result := CreatePgConnection(AConfig.Host, AConfig.Porta, AConfig.NomeBD, AConfig.Usuario,
+    AConfig.Senha, AConfig.ActiveVendorLib, '');
+end;
+
+procedure RunPreConnectionApplication(const AFileName: string);
+var
+  StartupInfo: TStartupInfo;
+  ProcessInfo: TProcessInformation;
+  CommandLine: string;
+  WaitResult, ExitCode: DWORD;
+begin
+  if not FileExists(AFileName) then
+    raise EJotaConnectionError.Create('Aplicação pré-conexão não encontrada:' + sLineBreak + AFileName);
+
+  FillChar(StartupInfo, SizeOf(StartupInfo), 0);
+  StartupInfo.cb := SizeOf(StartupInfo);
+  CommandLine := '"' + AFileName + '"';
+  UniqueString(CommandLine);
+
+  if not CreateProcess(nil, PChar(CommandLine), nil, nil, False, 0, nil,
+    PChar(ExtractFileDir(AFileName)), StartupInfo, ProcessInfo) then
+    raise EJotaConnectionError.CreateFmt('Não foi possível executar a aplicação pré-conexão:' +
+      sLineBreak + '%s' + sLineBreak + '%s', [AFileName, SysErrorMessage(GetLastError)]);
+
+  try
+    WaitResult := WaitForSingleObject(ProcessInfo.hProcess, PreConnectionTimeoutMs);
+    if WaitResult = WAIT_TIMEOUT then
+      raise EJotaConnectionError.CreateFmt('A aplicação pré-conexão não terminou em %d segundos:' +
+        sLineBreak + '%s', [PreConnectionTimeoutMs div 1000, AFileName]);
+
+    ExitCode := 0;
+    GetExitCodeProcess(ProcessInfo.hProcess, ExitCode);
+    if ExitCode <> 0 then
+      raise EJotaConnectionError.CreateFmt('A aplicação pré-conexão terminou com código %d:' +
+        sLineBreak + '%s', [ExitCode, AFileName]);
+  finally
+    CloseHandle(ProcessInfo.hThread);
+    CloseHandle(ProcessInfo.hProcess);
+  end;
+end;
+
+function BuildSequenciasSslParams(const AAplicacaoPreConexao: string): string;
+var
+  Folder: string;
+begin
+  Result := '';
+  if AAplicacaoPreConexao <> '' then
+  begin
+    Folder := IncludeTrailingPathDelimiter(ExtractFilePath(AAplicacaoPreConexao));
+    if FileExists(Folder + 'ca.crt') and FileExists(Folder + 'client.crt') and
+      FileExists(Folder + 'client.key') then
+      Result := 'sslmode=require' +
+        ';sslrootcert=' + Folder + 'ca.crt' +
+        ';sslcert=' + Folder + 'client.crt' +
+        ';sslkey=' + Folder + 'client.key';
+  end;
+end;
+
+function CreateBaseDadosSequenciasConnection(const AConfig: TJotaBaseDadosSequencias;
+  const AVendorLib: string; out AUsesSsl: Boolean): TFDConnection;
+var
+  SslParams: string;
+begin
+  if AConfig.AplicacaoPreConexao <> '' then
+    RunPreConnectionApplication(AConfig.AplicacaoPreConexao);
+
+  SslParams := BuildSequenciasSslParams(AConfig.AplicacaoPreConexao);
+  AUsesSsl := SslParams <> '';
+  Result := CreatePgConnection(AConfig.Host, AConfig.Porta, AConfig.NomeBD, AConfig.Usuario,
+    AConfig.Senha, AVendorLib, SslParams);
 end;
 
 function CreateQuery(AConnection: TFDConnection; const ASql: string): TFDQuery;
@@ -532,6 +617,10 @@ initialization
 
 finalization
   FreeAndNil(GMetadata);
-  FreeAndNil(GDriverLink);
+  try
+    FreeAndNil(GDriverLink);
+  except
+    GDriverLink := nil;
+  end;
 
 end.

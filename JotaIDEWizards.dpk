@@ -32,6 +32,7 @@ package JotaIDEWizards;
 requires
   rtl,
   vcl,
+  vclx,
   dbrtl,
   designide,
   FireDAC,
@@ -58,6 +59,9 @@ contains
   Jota.IDEWizards.SqlEntity in 'Source\Jota.IDEWizards.SqlEntity.pas',
   Jota.IDEWizards.SqlEntityDialog in 'Source\Jota.IDEWizards.SqlEntityDialog.pas',
   Jota.IDEWizards.SqlEntityWizard in 'Source\Jota.IDEWizards.SqlEntityWizard.pas',
+  Jota.IDEWizards.Sequence in 'Source\Jota.IDEWizards.Sequence.pas',
+  Jota.IDEWizards.SequenceDialog in 'Source\Jota.IDEWizards.SequenceDialog.pas',
+  Jota.IDEWizards.SequenceWizard in 'Source\Jota.IDEWizards.SequenceWizard.pas',
   Jota.IDEWizards.JotaMenu in 'Source\Jota.IDEWizards.JotaMenu.pas',
   Jota.IDEWizards.Register in 'Source\Jota.IDEWizards.Register.pas',
   Jota.IDEWizards.TableScript in 'Source\Jota.IDEWizards.TableScript.pas',

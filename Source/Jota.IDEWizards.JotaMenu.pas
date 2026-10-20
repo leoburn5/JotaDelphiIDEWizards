@@ -26,6 +26,7 @@ uses
   Jota.IDEWizards.OTAUtils,
   Jota.IDEWizards.SqlEntityWizard,
   Jota.IDEWizards.TableScriptWizard,
+  Jota.IDEWizards.SequenceWizard,
   Jota.IDEWizards.FieldWizards;
 
 const
@@ -39,6 +40,7 @@ type
     FReloadMetadataAction: TAction;
     FSqlEntityAction: TAction;
     FTableScriptAction: TAction;
+    FNewSequenceAction: TAction;
     FNewFMTBCDFieldAction: TAction;
     FPopupMenu: TPopupMenu;
     FEditorPopupMenu: TPopupMenu;
@@ -57,7 +59,10 @@ type
     procedure ReloadMetadataActionExecute(Sender: TObject);
     procedure SqlEntityActionExecute(Sender: TObject);
     procedure TableScriptActionExecute(Sender: TObject);
+    procedure NewSequenceActionExecute(Sender: TObject);
     procedure NewFMTBCDFieldActionExecute(Sender: TObject);
+  protected
+    procedure Notification(AComponent: TComponent; Operation: TOperation); override;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -89,6 +94,9 @@ begin
   FTableScriptAction := CreateAction('JotaTableScriptAction',
     '&4 - Tabela para Script', TableScriptActionExecute);
 
+  FNewSequenceAction := CreateAction('JotaNewSequenceAction',
+    '&5 - Nova Sequência', NewSequenceActionExecute);
+
   FNewFMTBCDFieldAction := CreateAction('JotaNewFMTBCDFieldAction',
     '&3 - Novo campo FMTBCD', NewFMTBCDFieldActionExecute);
 
@@ -107,8 +115,9 @@ begin
   AddActionItem(FEditorPopupMenu.Items, FReloadMetadataAction);
   AddActionItem(FEditorPopupMenu.Items, FSqlEntityAction);
   AddActionItem(FEditorPopupMenu.Items, FTableScriptAction);
+  AddActionItem(FEditorPopupMenu.Items, FNewSequenceAction);
   FSyncEditItem := TMenuItem.Create(FEditorPopupMenu);
-  FSyncEditItem.Caption := '&5 - SyncEdit';
+  FSyncEditItem.Caption := '&6 - SyncEdit';
   FEditorPopupMenu.Items.Add(FSyncEditItem);
 
   AddToolsMenu((BorlandIDEServices as INTAServices).MainMenu);
@@ -116,11 +125,14 @@ end;
 
 destructor TJotaMenu.Destroy;
 begin
+  if (FToolsMenuItem <> nil) and (FToolsMenuItem.Parent <> nil) then
+    FToolsMenuItem.Parent.Remove(FToolsMenuItem);
   FreeAndNil(FToolsMenuItem);
   FreeAndNil(FEditorPopupMenu);
   FreeAndNil(FPopupMenu);
   FreeAndNil(FShortcutAction);
   FreeAndNil(FNewFMTBCDFieldAction);
+  FreeAndNil(FNewSequenceAction);
   FreeAndNil(FTableScriptAction);
   FreeAndNil(FSqlEntityAction);
   FreeAndNil(FReloadMetadataAction);
@@ -137,6 +149,35 @@ begin
   Result.Category := JotaCategory;
   Result.OnExecute := AOnExecute;
   Result.ActionList := (BorlandIDEServices as INTAServices).ActionList;
+  Result.FreeNotification(Self);
+end;
+
+procedure TJotaMenu.Notification(AComponent: TComponent; Operation: TOperation);
+begin
+  inherited;
+  if Operation = opRemove then
+  begin
+    if AComponent = FToolsMenuItem then
+      FToolsMenuItem := nil
+    else if AComponent = FShortcutAction then
+      FShortcutAction := nil
+    else if AComponent = FConfigAction then
+      FConfigAction := nil
+    else if AComponent = FReloadMetadataAction then
+      FReloadMetadataAction := nil
+    else if AComponent = FSqlEntityAction then
+      FSqlEntityAction := nil
+    else if AComponent = FTableScriptAction then
+      FTableScriptAction := nil
+    else if AComponent = FNewSequenceAction then
+      FNewSequenceAction := nil
+    else if AComponent = FNewFMTBCDFieldAction then
+      FNewFMTBCDFieldAction := nil
+    else if AComponent = FPopupMenu then
+      FPopupMenu := nil
+    else if AComponent = FEditorPopupMenu then
+      FEditorPopupMenu := nil;
+  end;
 end;
 
 function TJotaMenu.AddActionItem(AParent: TMenuItem; AAction: TAction): TMenuItem;
@@ -189,11 +230,13 @@ begin
     FToolsMenuItem := TMenuItem.Create(nil);
     FToolsMenuItem.Name := 'JotaIDEWizardsToolsMenu';
     FToolsMenuItem.Caption := 'Jota IDE Wizards';
+    FToolsMenuItem.FreeNotification(Self);
 
     AddToolsItem('Configurar', FConfigAction);
     AddToolsItem('Recarregar metadados', FReloadMetadataAction);
     AddToolsItem('SQL Query para Entidade', FSqlEntityAction);
     AddToolsItem('Tabela para Script', FTableScriptAction);
+    AddToolsItem('Nova Sequência', FNewSequenceAction);
     AddToolsItem('Novo campo FMTBCD', FNewFMTBCDFieldAction);
 
     ToolsMenu.Add(FToolsMenuItem);
@@ -263,6 +306,11 @@ end;
 procedure TJotaMenu.TableScriptActionExecute(Sender: TObject);
 begin
   RunTableScriptWizard;
+end;
+
+procedure TJotaMenu.NewSequenceActionExecute(Sender: TObject);
+begin
+  RunNewSequenceWizard;
 end;
 
 procedure TJotaMenu.NewFMTBCDFieldActionExecute(Sender: TObject);

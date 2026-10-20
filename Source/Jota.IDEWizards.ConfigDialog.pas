@@ -9,6 +9,7 @@ implementation
 uses
   System.SysUtils,
   System.Classes,
+  System.UITypes,
   Winapi.Windows,
   Winapi.ShellAPI,
   Vcl.Forms,
@@ -16,58 +17,103 @@ uses
   Vcl.StdCtrls,
   Vcl.Graphics,
   Vcl.Dialogs,
+  Vcl.FileCtrl,
+  FireDAC.Comp.Client,
   Jota.IDEWizards.Config,
+  Jota.IDEWizards.Metadata,
   Jota.IDEWizards.Theming;
 
 const
   Margin = 16;
   GroupPadding = 12;
   GroupTopPadding = 24;
-  LabelWidth = 100;
+  LabelWidth = 120;
   ControlWidth = 260;
   RowHeight = 30;
-  ButtonWidth = 90;
+  ButtonWidth = 100;
   ButtonHeight = 28;
   BrowseButtonWidth = 28;
   PasswordMask = '*';
 
 type
+  TJotaConnectionEdits = record
+    Host: TEdit;
+    Porta: TEdit;
+    NomeBD: TEdit;
+    Usuario: TEdit;
+    Senha: TEdit;
+    MostrarSenha: TCheckBox;
+  end;
+
   TJotaConfigForm = class(TForm)
   private
     FRowTop: Integer;
+    FGroup: TGroupBox;
     gbBaseDadosTrabalho: TGroupBox;
-    edHost: TEdit;
-    edPorta: TEdit;
-    edNomeBD: TEdit;
-    edUsuario: TEdit;
-    edSenha: TEdit;
-    chkMostrarSenha: TCheckBox;
+    gbBaseDadosSequencias: TGroupBox;
+    FTrabalho: TJotaConnectionEdits;
+    FSequencias: TJotaConnectionEdits;
     edVendorLib32: TEdit;
     btnVendorLib32: TButton;
     edVendorLib64: TEdit;
     btnVendorLib64: TButton;
+    edAplicacaoPreConexao: TEdit;
+    btnAplicacaoPreConexao: TButton;
+    edPrefixoArquivosScript: TEdit;
+    edPastaArquivosScript: TEdit;
+    btnPastaArquivosScript: TButton;
+    function CreateGroup(const ACaption: string; ALeft: Integer): TGroupBox;
     function AddRow(const ACaption: string; AWidth: Integer = ControlWidth): TEdit;
-    function AddVendorLibRow(const ACaption: string; out AButton: TButton): TEdit;
+    function AddBrowseRow(const ACaption: string; AOnClick: TNotifyEvent;
+      out AButton: TButton): TEdit;
+    function AddConnectionRows: TJotaConnectionEdits;
     function CheckVendorLib(AEdit: TEdit; const AFileName: string;
       AMachine: Word; const ABits: string): Boolean;
+    function ValidateConnection(const AEdits: TJotaConnectionEdits; const AHost: string;
+      APorta: Integer; const ANomeBD, AUsuario: string; ARequired: Boolean): Boolean;
     procedure MostrarSenhaClick(Sender: TObject);
     procedure VendorLibBrowseClick(Sender: TObject);
+    procedure AplicacaoPreConexaoBrowseClick(Sender: TObject);
+    procedure PastaArquivosScriptBrowseClick(Sender: TObject);
+    procedure TestarSequenciasClick(Sender: TObject);
     procedure OpenConfigFolderClick(Sender: TObject);
     procedure FormCloseQueryHandler(Sender: TObject; var CanClose: Boolean);
     procedure Fail(AControl: TWinControl; const AMessage: string);
-    function Validate(const AConfig: TJotaBaseDadosTrabalho): Boolean;
-    function TrySave(const AConfig: TJotaBaseDadosTrabalho): Boolean;
-    function GetConfig: TJotaBaseDadosTrabalho;
-    procedure SetConfig(const AConfig: TJotaBaseDadosTrabalho);
+    function Validate(const ATrabalho: TJotaBaseDadosTrabalho;
+      const ASequencias: TJotaBaseDadosSequencias): Boolean;
+    function TrySave(const ATrabalho: TJotaBaseDadosTrabalho;
+      const ASequencias: TJotaBaseDadosSequencias): Boolean;
+    function GetTrabalho: TJotaBaseDadosTrabalho;
+    function GetSequencias: TJotaBaseDadosSequencias;
+    procedure SetConfig(const ATrabalho: TJotaBaseDadosTrabalho;
+      const ASequencias: TJotaBaseDadosSequencias);
   public
     constructor CreateDialog;
   end;
 
+function GetConnectionText(AEdit: TEdit): string;
+begin
+  Result := Trim(AEdit.Text);
+end;
+
+function GetPortaValue(AEdit: TEdit): Integer;
+begin
+  Result := StrToIntDef(Trim(AEdit.Text), 0);
+end;
+
+procedure SetPortaValue(AEdit: TEdit; APorta: Integer);
+begin
+  if APorta > 0 then
+    AEdit.Text := IntToStr(APorta)
+  else
+    AEdit.Text := '';
+end;
+
 constructor TJotaConfigForm.CreateDialog;
 var
-  BtnOk, BtnCancel, BtnOpenFolder: TButton;
+  BtnOk, BtnCancel, BtnOpenFolder, BtnTestar: TButton;
   lblArquivo: TLabel;
-  GroupWidth, Y: Integer;
+  GroupWidth, GroupHeight, Y: Integer;
 begin
   inherited CreateNew(nil);
 
@@ -78,44 +124,43 @@ begin
   OnCloseQuery := FormCloseQueryHandler;
 
   GroupWidth := GroupPadding + LabelWidth + ControlWidth + GroupPadding;
-  ClientWidth := Margin + GroupWidth + Margin;
+  ClientWidth := Margin + GroupWidth + Margin + GroupWidth + Margin;
 
-  gbBaseDadosTrabalho := TGroupBox.Create(Self);
-  gbBaseDadosTrabalho.Parent := Self;
-  gbBaseDadosTrabalho.Caption := ' Base de dados de trabalho ';
-  gbBaseDadosTrabalho.Left := Margin;
-  gbBaseDadosTrabalho.Top := Margin;
-  gbBaseDadosTrabalho.Width := GroupWidth;
-
-  FRowTop := GroupTopPadding;
-  edHost := AddRow('&Host:');
-  edPorta := AddRow('&Porta:', 70);
-  edPorta.NumbersOnly := True;
-  edPorta.MaxLength := 5;
-  edNomeBD := AddRow('&NomeBD:');
-  edUsuario := AddRow('&Usuário:');
-  edSenha := AddRow('&Senha:');
-  edSenha.PasswordChar := PasswordMask;
-
-  chkMostrarSenha := TCheckBox.Create(Self);
-  chkMostrarSenha.Parent := gbBaseDadosTrabalho;
-  chkMostrarSenha.Caption := '&Mostrar senha';
-  chkMostrarSenha.Left := GroupPadding + LabelWidth;
-  chkMostrarSenha.Top := FRowTop;
-  chkMostrarSenha.Width := ControlWidth;
-  chkMostrarSenha.OnClick := MostrarSenhaClick;
-  Inc(FRowTop, RowHeight);
-
-  edVendorLib32 := AddVendorLibRow('libpq &32 bits:', btnVendorLib32);
-  edVendorLib64 := AddVendorLibRow('libpq &64 bits:', btnVendorLib64);
+  gbBaseDadosTrabalho := CreateGroup(' Base de dados de trabalho ', Margin);
+  FTrabalho := AddConnectionRows;
+  edVendorLib32 := AddBrowseRow('libpq &32 bits:', VendorLibBrowseClick, btnVendorLib32);
+  edVendorLib32.TextHint := '(vazio = procura no PATH)';
+  edVendorLib64 := AddBrowseRow('libpq &64 bits:', VendorLibBrowseClick, btnVendorLib64);
+  edVendorLib64.TextHint := '(vazio = procura no PATH)';
 {$IFDEF WIN64}
   edVendorLib64.Font.Style := [fsBold];
 {$ELSE}
   edVendorLib32.Font.Style := [fsBold];
 {$ENDIF}
+  GroupHeight := FRowTop;
 
-  gbBaseDadosTrabalho.Height := FRowTop + GroupPadding div 2;
-  Y := gbBaseDadosTrabalho.Top + gbBaseDadosTrabalho.Height + 8;
+  gbBaseDadosSequencias := CreateGroup(' Base de dados de sequências ', Margin + GroupWidth + Margin);
+  FSequencias := AddConnectionRows;
+  edAplicacaoPreConexao := AddBrowseRow('Aplicação pré-&conexão:', AplicacaoPreConexaoBrowseClick,
+    btnAplicacaoPreConexao);
+  edAplicacaoPreConexao.TextHint := '(opcional) executada antes de conectar';
+  edPrefixoArquivosScript := AddRow('Pre&fixo dos scripts:');
+  edPastaArquivosScript := AddBrowseRow('Pasta dos scr&ipts:', PastaArquivosScriptBrowseClick,
+    btnPastaArquivosScript);
+
+  BtnTestar := TButton.Create(Self);
+  BtnTestar.Parent := gbBaseDadosSequencias;
+  BtnTestar.Caption := '&Testar conexão';
+  BtnTestar.SetBounds(GroupPadding + LabelWidth, FRowTop, 120, ButtonHeight - 2);
+  BtnTestar.OnClick := TestarSequenciasClick;
+  Inc(FRowTop, RowHeight + 4);
+
+  if FRowTop > GroupHeight then
+    GroupHeight := FRowTop;
+  gbBaseDadosTrabalho.Height := GroupHeight + GroupPadding div 2;
+  gbBaseDadosSequencias.Height := GroupHeight + GroupPadding div 2;
+
+  Y := Margin + gbBaseDadosTrabalho.Height + 8;
 
   lblArquivo := TLabel.Create(Self);
   lblArquivo.Parent := Self;
@@ -123,16 +168,16 @@ begin
   lblArquivo.WordWrap := True;
   lblArquivo.Left := Margin;
   lblArquivo.Top := Y;
-  lblArquivo.Width := GroupWidth;
+  lblArquivo.Width := ClientWidth - Margin * 2;
   lblArquivo.Height := 48;
   lblArquivo.Font.Color := clGrayText;
   lblArquivo.ShowAccelChar := False;
 {$IFDEF WIN64}
-  lblArquivo.Caption := 'IDE de 64 bits: usa a libpq de 64 bits.' + sLineBreak +
-    'Arquivo: ' + GetJotaConfigFilePath;
+  lblArquivo.Caption := 'IDE de 64 bits: usa a libpq de 64 bits (também na base de sequências).' +
+    sLineBreak + 'Arquivo: ' + GetJotaConfigFilePath;
 {$ELSE}
-  lblArquivo.Caption := 'IDE de 32 bits: usa a libpq de 32 bits.' + sLineBreak +
-    'Arquivo: ' + GetJotaConfigFilePath;
+  lblArquivo.Caption := 'IDE de 32 bits: usa a libpq de 32 bits (também na base de sequências).' +
+    sLineBreak + 'Arquivo: ' + GetJotaConfigFilePath;
 {$ENDIF}
   Inc(Y, lblArquivo.Height + 8);
 
@@ -160,9 +205,21 @@ begin
 
   ClientHeight := Y + ButtonHeight + Margin;
 
-  ActiveControl := edHost;
+  ActiveControl := FTrabalho.Host;
 
   ApplyIdeMatchingStyle(Self);
+end;
+
+function TJotaConfigForm.CreateGroup(const ACaption: string; ALeft: Integer): TGroupBox;
+begin
+  Result := TGroupBox.Create(Self);
+  Result.Parent := Self;
+  Result.Caption := ACaption;
+  Result.Left := ALeft;
+  Result.Top := Margin;
+  Result.Width := GroupPadding + LabelWidth + ControlWidth + GroupPadding;
+  FGroup := Result;
+  FRowTop := GroupTopPadding;
 end;
 
 function TJotaConfigForm.AddRow(const ACaption: string; AWidth: Integer): TEdit;
@@ -170,11 +227,11 @@ var
   Lbl: TLabel;
 begin
   Result := TEdit.Create(Self);
-  Result.Parent := gbBaseDadosTrabalho;
+  Result.Parent := FGroup;
   Result.SetBounds(GroupPadding + LabelWidth, FRowTop, AWidth, Result.Height);
 
   Lbl := TLabel.Create(Self);
-  Lbl.Parent := gbBaseDadosTrabalho;
+  Lbl.Parent := FGroup;
   Lbl.Caption := ACaption;
   Lbl.Left := GroupPadding;
   Lbl.Top := FRowTop + 3;
@@ -183,25 +240,52 @@ begin
   Inc(FRowTop, RowHeight);
 end;
 
-procedure TJotaConfigForm.MostrarSenhaClick(Sender: TObject);
-begin
-  if chkMostrarSenha.Checked then
-    edSenha.PasswordChar := #0
-  else
-    edSenha.PasswordChar := PasswordMask;
-end;
-
-function TJotaConfigForm.AddVendorLibRow(const ACaption: string; out AButton: TButton): TEdit;
+function TJotaConfigForm.AddBrowseRow(const ACaption: string; AOnClick: TNotifyEvent;
+  out AButton: TButton): TEdit;
 begin
   Result := AddRow(ACaption, ControlWidth - BrowseButtonWidth - 4);
-  Result.TextHint := '(vazio = procura no PATH)';
 
   AButton := TButton.Create(Self);
-  AButton.Parent := gbBaseDadosTrabalho;
+  AButton.Parent := FGroup;
   AButton.Caption := '...';
   AButton.SetBounds(Result.Left + Result.Width + 4, Result.Top,
     BrowseButtonWidth, Result.Height);
-  AButton.OnClick := VendorLibBrowseClick;
+  AButton.OnClick := AOnClick;
+end;
+
+function TJotaConfigForm.AddConnectionRows: TJotaConnectionEdits;
+begin
+  Result.Host := AddRow('&Host:');
+  Result.Porta := AddRow('P&orta:', 70);
+  Result.Porta.NumbersOnly := True;
+  Result.Porta.MaxLength := 5;
+  Result.NomeBD := AddRow('&NomeBD:');
+  Result.Usuario := AddRow('&Usuário:');
+  Result.Senha := AddRow('&Senha:');
+  Result.Senha.PasswordChar := PasswordMask;
+
+  Result.MostrarSenha := TCheckBox.Create(Self);
+  Result.MostrarSenha.Parent := FGroup;
+  Result.MostrarSenha.Caption := '&Mostrar senha';
+  Result.MostrarSenha.Left := GroupPadding + LabelWidth;
+  Result.MostrarSenha.Top := FRowTop;
+  Result.MostrarSenha.Width := ControlWidth;
+  Result.MostrarSenha.Tag := NativeInt(Result.Senha);
+  Result.MostrarSenha.OnClick := MostrarSenhaClick;
+  Inc(FRowTop, RowHeight);
+end;
+
+procedure TJotaConfigForm.MostrarSenhaClick(Sender: TObject);
+var
+  CheckBox: TCheckBox;
+  SenhaEdit: TEdit;
+begin
+  CheckBox := Sender as TCheckBox;
+  SenhaEdit := TEdit(CheckBox.Tag);
+  if CheckBox.Checked then
+    SenhaEdit.PasswordChar := #0
+  else
+    SenhaEdit.PasswordChar := PasswordMask;
 end;
 
 function ReadDllMachine(const AFileName: string): Word;
@@ -230,33 +314,92 @@ begin
   end;
 end;
 
-procedure TJotaConfigForm.VendorLibBrowseClick(Sender: TObject);
+procedure BrowseFile(AOwner: TComponent; AEdit: TEdit; const ATitle, AFilter: string);
 var
   Dialog: TOpenDialog;
-  edVendorLib: TEdit;
 begin
-  if Sender = btnVendorLib64 then
-    edVendorLib := edVendorLib64
-  else
-    edVendorLib := edVendorLib32;
-
-  Dialog := TOpenDialog.Create(Self);
+  Dialog := TOpenDialog.Create(AOwner);
   try
-    if edVendorLib = edVendorLib64 then
-      Dialog.Title := 'Selecione a libpq.dll de 64 bits'
-    else
-      Dialog.Title := 'Selecione a libpq.dll de 32 bits';
-    Dialog.Filter := 'libpq.dll|libpq.dll|Bibliotecas (*.dll)|*.dll';
+    Dialog.Title := ATitle;
+    Dialog.Filter := AFilter;
     Dialog.Options := Dialog.Options + [ofFileMustExist, ofPathMustExist];
-    if edVendorLib.Text <> '' then
+    if AEdit.Text <> '' then
     begin
-      Dialog.InitialDir := ExtractFilePath(edVendorLib.Text);
-      Dialog.FileName := ExtractFileName(edVendorLib.Text);
+      Dialog.InitialDir := ExtractFilePath(AEdit.Text);
+      Dialog.FileName := ExtractFileName(AEdit.Text);
     end;
     if Dialog.Execute then
-      edVendorLib.Text := Dialog.FileName;
+      AEdit.Text := Dialog.FileName;
   finally
     Dialog.Free;
+  end;
+end;
+
+procedure TJotaConfigForm.VendorLibBrowseClick(Sender: TObject);
+begin
+  if Sender = btnVendorLib64 then
+    BrowseFile(Self, edVendorLib64, 'Selecione a libpq.dll de 64 bits',
+      'libpq.dll|libpq.dll|Bibliotecas (*.dll)|*.dll')
+  else
+    BrowseFile(Self, edVendorLib32, 'Selecione a libpq.dll de 32 bits',
+      'libpq.dll|libpq.dll|Bibliotecas (*.dll)|*.dll');
+end;
+
+procedure TJotaConfigForm.AplicacaoPreConexaoBrowseClick(Sender: TObject);
+begin
+  BrowseFile(Self, edAplicacaoPreConexao, 'Selecione a aplicação pré-conexão',
+    'Executáveis (*.exe;*.bat;*.cmd)|*.exe;*.bat;*.cmd|Todos os arquivos (*.*)|*.*');
+end;
+
+procedure TJotaConfigForm.PastaArquivosScriptBrowseClick(Sender: TObject);
+var
+  Folder: string;
+begin
+  Folder := Trim(edPastaArquivosScript.Text);
+  if SelectDirectory('Selecione a pasta dos arquivos de script', '', Folder,
+    [sdNewUI, sdNewFolder], Self) then
+    edPastaArquivosScript.Text := Folder;
+end;
+
+procedure TJotaConfigForm.TestarSequenciasClick(Sender: TObject);
+var
+  Sequencias: TJotaBaseDadosSequencias;
+  Connection: TFDConnection;
+  UsesSsl: Boolean;
+  Info: string;
+begin
+  Sequencias := GetSequencias;
+  if ValidateConnection(FSequencias, Sequencias.Host, Sequencias.Porta, Sequencias.NomeBD,
+    Sequencias.Usuario, True) then
+  begin
+    Screen.Cursor := crHourGlass;
+    try
+      try
+        Connection := CreateBaseDadosSequenciasConnection(Sequencias,
+          GetTrabalho.ActiveVendorLib, UsesSsl);
+        try
+          Connection.Connected := True;
+          Connection.Connected := False;
+        finally
+          Connection.Free;
+        end;
+        if UsesSsl then
+          Info := 'Conexão OK (SSL require com ca.crt, client.crt e client.key).'
+        else
+          Info := 'Conexão OK (sem certificados de cliente).';
+        Screen.Cursor := crDefault;
+        MessageDlg(Info, mtInformation, [mbOK], 0);
+      except
+        on E: Exception do
+        begin
+          Screen.Cursor := crDefault;
+          MessageDlg('Falha ao conectar na base de dados de sequências:' + sLineBreak + sLineBreak +
+            E.Message, mtError, [mbOK], 0);
+        end;
+      end;
+    finally
+      Screen.Cursor := crDefault;
+    end;
   end;
 end;
 
@@ -273,29 +416,48 @@ begin
   ShellExecute(Handle, 'open', 'explorer.exe', PChar(Parameters), nil, SW_SHOWNORMAL);
 end;
 
-function TJotaConfigForm.GetConfig: TJotaBaseDadosTrabalho;
+function TJotaConfigForm.GetTrabalho: TJotaBaseDadosTrabalho;
 begin
-  Result.Host := Trim(edHost.Text);
-  Result.Porta := StrToIntDef(Trim(edPorta.Text), 0);
-  Result.NomeBD := Trim(edNomeBD.Text);
-  Result.Usuario := Trim(edUsuario.Text);
-  Result.Senha := edSenha.Text;
+  Result.Host := GetConnectionText(FTrabalho.Host);
+  Result.Porta := GetPortaValue(FTrabalho.Porta);
+  Result.NomeBD := GetConnectionText(FTrabalho.NomeBD);
+  Result.Usuario := GetConnectionText(FTrabalho.Usuario);
+  Result.Senha := FTrabalho.Senha.Text;
   Result.VendorLib32 := Trim(edVendorLib32.Text);
   Result.VendorLib64 := Trim(edVendorLib64.Text);
 end;
 
-procedure TJotaConfigForm.SetConfig(const AConfig: TJotaBaseDadosTrabalho);
+function TJotaConfigForm.GetSequencias: TJotaBaseDadosSequencias;
 begin
-  edHost.Text := AConfig.Host;
-  if AConfig.Porta > 0 then
-    edPorta.Text := IntToStr(AConfig.Porta)
-  else
-    edPorta.Text := '';
-  edNomeBD.Text := AConfig.NomeBD;
-  edUsuario.Text := AConfig.Usuario;
-  edSenha.Text := AConfig.Senha;
-  edVendorLib32.Text := AConfig.VendorLib32;
-  edVendorLib64.Text := AConfig.VendorLib64;
+  Result.Host := GetConnectionText(FSequencias.Host);
+  Result.Porta := GetPortaValue(FSequencias.Porta);
+  Result.NomeBD := GetConnectionText(FSequencias.NomeBD);
+  Result.Usuario := GetConnectionText(FSequencias.Usuario);
+  Result.Senha := FSequencias.Senha.Text;
+  Result.AplicacaoPreConexao := Trim(edAplicacaoPreConexao.Text);
+  Result.PrefixoArquivosScript := Trim(edPrefixoArquivosScript.Text);
+  Result.PastaArquivosScript := Trim(edPastaArquivosScript.Text);
+end;
+
+procedure TJotaConfigForm.SetConfig(const ATrabalho: TJotaBaseDadosTrabalho;
+  const ASequencias: TJotaBaseDadosSequencias);
+begin
+  FTrabalho.Host.Text := ATrabalho.Host;
+  SetPortaValue(FTrabalho.Porta, ATrabalho.Porta);
+  FTrabalho.NomeBD.Text := ATrabalho.NomeBD;
+  FTrabalho.Usuario.Text := ATrabalho.Usuario;
+  FTrabalho.Senha.Text := ATrabalho.Senha;
+  edVendorLib32.Text := ATrabalho.VendorLib32;
+  edVendorLib64.Text := ATrabalho.VendorLib64;
+
+  FSequencias.Host.Text := ASequencias.Host;
+  SetPortaValue(FSequencias.Porta, ASequencias.Porta);
+  FSequencias.NomeBD.Text := ASequencias.NomeBD;
+  FSequencias.Usuario.Text := ASequencias.Usuario;
+  FSequencias.Senha.Text := ASequencias.Senha;
+  edAplicacaoPreConexao.Text := ASequencias.AplicacaoPreConexao;
+  edPrefixoArquivosScript.Text := ASequencias.PrefixoArquivosScript;
+  edPastaArquivosScript.Text := ASequencias.PastaArquivosScript;
 end;
 
 procedure TJotaConfigForm.Fail(AControl: TWinControl; const AMessage: string);
@@ -305,20 +467,47 @@ begin
     AControl.SetFocus;
 end;
 
-function TJotaConfigForm.Validate(const AConfig: TJotaBaseDadosTrabalho): Boolean;
+function TJotaConfigForm.ValidateConnection(const AEdits: TJotaConnectionEdits;
+  const AHost: string; APorta: Integer; const ANomeBD, AUsuario: string;
+  ARequired: Boolean): Boolean;
 begin
   Result := False;
-  if AConfig.Host = '' then
-    Fail(edHost, 'Informe o Host.')
-  else if (AConfig.Porta < 1) or (AConfig.Porta > 65535) then
-    Fail(edPorta, 'Porta deve estar entre 1 e 65535 (padrão do PostgreSQL: 5432).')
-  else if AConfig.NomeBD = '' then
-    Fail(edNomeBD, 'Informe o NomeBD.')
-  else if AConfig.Usuario = '' then
-    Fail(edUsuario, 'Informe o Usuário.')
+  if not ARequired and (AHost = '') and (ANomeBD = '') and (AUsuario = '') then
+    Result := True
+  else if AHost = '' then
+    Fail(AEdits.Host, 'Informe o Host.')
+  else if (APorta < 1) or (APorta > 65535) then
+    Fail(AEdits.Porta, 'Porta deve estar entre 1 e 65535 (padrão do PostgreSQL: 5432).')
+  else if ANomeBD = '' then
+    Fail(AEdits.NomeBD, 'Informe o NomeBD.')
+  else if AUsuario = '' then
+    Fail(AEdits.Usuario, 'Informe o Usuário.')
   else
-    Result := CheckVendorLib(edVendorLib32, AConfig.VendorLib32, IMAGE_FILE_MACHINE_I386, '32') and
-      CheckVendorLib(edVendorLib64, AConfig.VendorLib64, IMAGE_FILE_MACHINE_AMD64, '64');
+    Result := True;
+end;
+
+function TJotaConfigForm.Validate(const ATrabalho: TJotaBaseDadosTrabalho;
+  const ASequencias: TJotaBaseDadosSequencias): Boolean;
+begin
+  Result := False;
+  if not ValidateConnection(FTrabalho, ATrabalho.Host, ATrabalho.Porta, ATrabalho.NomeBD,
+    ATrabalho.Usuario, True) then
+    Result := False
+  else if not CheckVendorLib(edVendorLib32, ATrabalho.VendorLib32, IMAGE_FILE_MACHINE_I386, '32') then
+    Result := False
+  else if not CheckVendorLib(edVendorLib64, ATrabalho.VendorLib64, IMAGE_FILE_MACHINE_AMD64, '64') then
+    Result := False
+  else if not ValidateConnection(FSequencias, ASequencias.Host, ASequencias.Porta,
+    ASequencias.NomeBD, ASequencias.Usuario, False) then
+    Result := False
+  else if (ASequencias.AplicacaoPreConexao <> '') and not FileExists(ASequencias.AplicacaoPreConexao) then
+    Fail(edAplicacaoPreConexao, 'Aplicação pré-conexão não encontrada:' + sLineBreak +
+      ASequencias.AplicacaoPreConexao)
+  else if (ASequencias.PastaArquivosScript <> '') and not DirectoryExists(ASequencias.PastaArquivosScript) then
+    Fail(edPastaArquivosScript, 'Pasta dos scripts não encontrada:' + sLineBreak +
+      ASequencias.PastaArquivosScript)
+  else
+    Result := True;
 end;
 
 function TJotaConfigForm.CheckVendorLib(AEdit: TEdit; const AFileName: string;
@@ -336,10 +525,11 @@ begin
     Result := True;
 end;
 
-function TJotaConfigForm.TrySave(const AConfig: TJotaBaseDadosTrabalho): Boolean;
+function TJotaConfigForm.TrySave(const ATrabalho: TJotaBaseDadosTrabalho;
+  const ASequencias: TJotaBaseDadosSequencias): Boolean;
 begin
   try
-    SaveBaseDadosTrabalho(AConfig);
+    SaveJotaConfig(ATrabalho, ASequencias);
     Result := True;
   except
     on E: Exception do
@@ -353,35 +543,40 @@ end;
 
 procedure TJotaConfigForm.FormCloseQueryHandler(Sender: TObject; var CanClose: Boolean);
 var
-  Config: TJotaBaseDadosTrabalho;
+  Trabalho: TJotaBaseDadosTrabalho;
+  Sequencias: TJotaBaseDadosSequencias;
 begin
   if ModalResult = mrOk then
   begin
-    Config := GetConfig;
-    CanClose := Validate(Config) and TrySave(Config);
+    Trabalho := GetTrabalho;
+    Sequencias := GetSequencias;
+    CanClose := Validate(Trabalho, Sequencias) and TrySave(Trabalho, Sequencias);
   end;
 end;
 
 function ExecuteConfigDialog: Boolean;
 var
   DlgForm: TJotaConfigForm;
-  Config: TJotaBaseDadosTrabalho;
+  Trabalho: TJotaBaseDadosTrabalho;
+  Sequencias: TJotaBaseDadosSequencias;
 begin
   try
-    Config := LoadBaseDadosTrabalho;
+    Trabalho := LoadBaseDadosTrabalho;
+    Sequencias := LoadBaseDadosSequencias;
   except
     on E: Exception do
     begin
       MessageDlg(E.Message + sLineBreak + sLineBreak +
         'Os valores padrão serão usados. Ao salvar, o arquivo atual será ' +
         'preservado com a extensão .bak.', mtWarning, [mbOK], 0);
-      Config := TJotaBaseDadosTrabalho.Default;
+      Trabalho := TJotaBaseDadosTrabalho.Default;
+      Sequencias := TJotaBaseDadosSequencias.Default;
     end;
   end;
 
   DlgForm := TJotaConfigForm.CreateDialog;
   try
-    DlgForm.SetConfig(Config);
+    DlgForm.SetConfig(Trabalho, Sequencias);
     Result := DlgForm.ShowModal = mrOk;
   finally
     DlgForm.Free;

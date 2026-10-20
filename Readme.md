@@ -24,7 +24,8 @@ O toast ("Script convertido e copiado para a área de transferência") aparece n
 2. **Recarregar metadados** — ver "Metadados da base de trabalho".
 3. **SQL Query para Entidade** — ver abaixo.
 4. **Tabela para Script** — ver abaixo.
-5. **SyncEdit** — repassa o Ctrl+Shift+J para o SyncEdit nativo do Delphi (o handler do Jota devolve `krUnhandled` e a IDE segue para o próximo binding). Fechar o menu com Esc não ativa o SyncEdit.
+5. **Nova Sequência** — ver abaixo.
+6. **SyncEdit** — repassa o Ctrl+Shift+J para o SyncEdit nativo do Delphi (o handler do Jota devolve `krUnhandled` e a IDE segue para o próximo binding). Fechar o menu com Esc não ativa o SyncEdit.
 
 **No Form Designer** (menu na posição do mouse):
 
@@ -60,6 +61,26 @@ Os scripts são inseridos no cursor como constantes string (mesmo formato do Ctr
 Com **Gerar Métodos de Replace** marcado, cada constante sai com seu próprio `const` e, logo abaixo, um bloco `var _Sql: string; begin ... end;` que carrega a constante em `_Sql`, troca cada parâmetro do script (`_Sql := FDMConexaoSPK.ReplaceSql(_Sql, ':coluna', aOrigemParam.coluna);`, ou `ReplaceSqlAsNull` quando a coluna faz parte de uma chave estrangeira) e termina com `FDMConexaoSPK.ExecSQL(_Sql);`. O bloco é um rascunho para ser movido à mão para o método certo.
 
 `<Tabela>` segue a mesma regra do nome de classe (sem `spk`/`tb`/`_`, em PascalCase). O esquema `public` é omitido; nomes com maiúsculas ou caracteres especiais vão entre aspas duplas.
+
+### Nova Sequência
+
+Abre um menu com **1 - Parâmetro por empresa [cps_emp]**, **2 - Parâmetro do sistema [spkcps]**, **3 - Função Programa [spkfupr]** e **4 - Menu [spkspk]**. Escolhida a opção, um formulário pede os parâmetros de entrada da função correspondente (`fu_get_sequencia_cps_emp_defs`, `fu_get_sequencia_spkcps`, `fu_get_sequencia_spkfupr` ou `fu_get_sequencia_spkspk`; `e_ind_modulo` é um combo S/N). Ao confirmar, conecta na base de sequências (com a aplicação pré-conexão e o SSL, se configurados), executa `select s_script from <função>(...)` e grava o script retornado:
+
+- se a pasta dos scripts tiver arquivos cujo nome contém o prefixo dos scripts, o script é acrescentado ao **último** deles em ordem alfabética (UTF-8, separado por uma linha em branco);
+- senão, cria `AAAAMMDD - <Prefixo> - AlterarNome.sql` em UTF-8 com BOM.
+
+Antes de abrir o menu, confere se a base de sequências, o prefixo e a pasta estão configurados. Se a execução falhar, o formulário reabre com os valores digitados. Se a sequência for gerada mas o arquivo não puder ser gravado, o script vai para a área de transferência.
+
+### Base de dados de sequências
+
+Segundo group box do Configurar, ao lado da base de trabalho, gravado no objeto `BaseDadosSequencias` do JSON: Host, Porta, NomeBD, Usuário, Senha (Base64), **Aplicação pré-conexão**, **Prefixo dos scripts** e **Pasta dos scripts**. É opcional: com Host, NomeBD e Usuário vazios, não é validado. Usa a mesma libpq configurada na base de trabalho.
+
+`CreateBaseDadosSequenciasConnection` (`Jota.IDEWizards.Metadata.pas`):
+
+1. Se houver aplicação pré-conexão, executa-a (diretório de trabalho = pasta do executável) e espera terminar, por até 60 s; timeout ou código de saída diferente de 0 geram erro.
+2. Se na pasta do executável existirem `ca.crt`, `client.crt` e `client.key`, conecta com `sslmode=require` e `sslrootcert`/`sslcert`/`sslkey` apontando para eles (via parâmetro `PGAdvanced` do FireDAC). Observação: com `sslrootcert` presente, a libpq valida o certificado do servidor contra o `ca.crt` (comportamento de `verify-ca`).
+
+O botão **Testar conexão** executa esse fluxo com os valores digitados e informa se usou SSL.
 
 ### Metadados da base de trabalho
 
