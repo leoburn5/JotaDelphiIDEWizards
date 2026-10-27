@@ -195,8 +195,15 @@ var
   GMetadata: TJotaMetadata = nil;
   GLastError: string = '';
   GDriverLink: TFDPhysPgDriverLink = nil;
+  GDriverLinkRefCount: Integer = 0;
 
-procedure PrepareDriverLink(const AVendorLib: string);
+type
+  TJotaPgConnection = class(TFDConnection)
+  public
+    destructor Destroy; override;
+  end;
+
+procedure AcquireDriverLink(const AVendorLib: string);
 begin
   if GDriverLink = nil then
   begin
@@ -205,9 +212,31 @@ begin
     GDriverLink.VendorLib := AVendorLib;
   end
   else if not SameText(GDriverLink.VendorLib, AVendorLib) then
+    raise EJotaConnectionError.Create('Já existe uma conexão aberta usando outra VendorLib:' +
+      sLineBreak + GDriverLink.VendorLib);
+  Inc(GDriverLinkRefCount);
+end;
+
+procedure ReleaseDriverLink;
+begin
+  if GDriverLinkRefCount > 0 then
+    Dec(GDriverLinkRefCount);
+  if (GDriverLinkRefCount = 0) and Assigned(GDriverLink) then
   begin
-    GDriverLink.Release;
-    GDriverLink.VendorLib := AVendorLib;
+    try
+      GDriverLink.Release;
+    finally
+      FreeAndNil(GDriverLink);
+    end;
+  end;
+end;
+
+destructor TJotaPgConnection.Destroy;
+begin
+  try
+    inherited Destroy;
+  finally
+    ReleaseDriverLink;
   end;
 end;
 
@@ -350,8 +379,13 @@ end;
 function CreatePgConnection(const AHost: string; APorta: Integer;
   const ANomeBD, AUsuario, ASenha, AVendorLib, AAdvanced: string): TFDConnection;
 begin
-  PrepareDriverLink(AVendorLib);
-  Result := TFDConnection.Create(nil);
+  AcquireDriverLink(AVendorLib);
+  try
+    Result := TJotaPgConnection.Create(nil);
+  except
+    ReleaseDriverLink;
+    raise;
+  end;
   try
     Result.LoginPrompt := False;
     Result.ResourceOptions.SilentMode := True;

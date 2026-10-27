@@ -47,6 +47,8 @@ contains
   Jota.IDEWizards.Theming in 'Source\Jota.IDEWizards.Theming.pas',
   Jota.IDEWizards.Toast in 'Source\Jota.IDEWizards.Toast.pas',
   Jota.IDEWizards.SqlConvertChoiceDialog in 'Source\Jota.IDEWizards.SqlConvertChoiceDialog.pas',
+  Jota.IDEWizards.DfmClientSizeFix in 'Source\Jota.IDEWizards.DfmClientSizeFix.pas',
+  Jota.IDEWizards.SaveGuard in 'Source\Jota.IDEWizards.SaveGuard.pas',
   Jota.IDEWizards.KeyBindings in 'Source\Jota.IDEWizards.KeyBindings.pas',
   Jota.IDEWizards.SplashScreen in 'Source\Jota.IDEWizards.SplashScreen.pas',
   Jota.IDEWizards.NewFMTBCDFieldDialog in 'Source\Jota.IDEWizards.NewFMTBCDFieldDialog.pas',

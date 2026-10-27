@@ -157,4 +157,18 @@ begin
   TJotaToastForm.CreateToast(AMessage, ADurationMs);
 end;
 
+procedure FreeOpenToasts;
+var
+  I: Integer;
+begin
+  for I := Screen.FormCount - 1 downto 0 do
+    if Screen.Forms[I] is TJotaToastForm then
+      Screen.Forms[I].Free;
+end;
+
+initialization
+
+finalization
+  FreeOpenToasts;
+
 end.
